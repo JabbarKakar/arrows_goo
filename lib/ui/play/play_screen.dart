@@ -8,6 +8,7 @@ import '../../core/storage/tutorial_seen.dart';
 import '../../game/session/play_session.dart';
 import '../widgets/game_board.dart';
 import '../widgets/hearts_hud.dart';
+import '../widgets/zoomable_board.dart';
 import 'clear_burst.dart';
 import 'play_sheet.dart';
 import 'tutorial_coach.dart';
@@ -60,21 +61,27 @@ class PlayScreen extends ConsumerWidget {
             child: Column(
               children: [
                 Expanded(
-                  child: Center(
-                    child: GameBoard(
-                      board: session.board,
-                      sliding: session.sliding,
-                      enabled: !session.inputLocked,
-                      guidancePos: session.guidancePos,
-                      hintedPos: session.hintedPos,
-                      shakingPos: session.shakingPos,
-                      shakeNonce: session.shakeNonce,
-                      onTap: (pos) => notifier.tap(pos.row, pos.col),
-                      onSlideComplete: () {
-                        unawaited(notifier.completeSlide());
-                      },
-                      onLongPressStart: notifier.startGuidance,
-                      onLongPressEnd: notifier.clearGuidance,
+                  child: ZoomableBoard(
+                    resetToken: (
+                      session.levelNumber,
+                      session.isDaily,
+                    ),
+                    child: Center(
+                      child: GameBoard(
+                        board: session.board,
+                        sliding: session.sliding,
+                        enabled: !session.inputLocked,
+                        guidancePos: session.guidancePos,
+                        hintedPos: session.hintedPos,
+                        shakingPos: session.shakingPos,
+                        shakeNonce: session.shakeNonce,
+                        onTap: (pos) => notifier.tap(pos.row, pos.col),
+                        onSlideComplete: () {
+                          unawaited(notifier.completeSlide());
+                        },
+                        onLongPressStart: notifier.startGuidance,
+                        onLongPressEnd: notifier.clearGuidance,
+                      ),
                     ),
                   ),
                 ),

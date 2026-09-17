@@ -65,33 +65,8 @@ class LevelGenerator {
     var nextId = 0;
     var occupied = 0;
 
-    // Lots of short/medium pieces so the screen is packed with many arrows.
-    board = _fill(
-      board,
-      rng,
-      spec,
-      nextId,
-      occupied,
-      minLength: 5,
-      target: (spec.fillCount * 0.22).ceil(),
-      maxFailures: 50,
-    );
-    occupied = _occupiedCount(board);
-    nextId = occupied == 0 ? 0 : _maxId(board) + 1;
-
-    board = _fill(
-      board,
-      rng,
-      spec,
-      nextId,
-      occupied,
-      minLength: 2,
-      target: (spec.fillCount * 0.78).ceil(),
-      maxFailures: 90,
-    );
-    occupied = _occupiedCount(board);
-    nextId = occupied == 0 ? 0 : _maxId(board) + 1;
-
+    // Reverse-place mixed lengths so later pieces sit on earlier exit lanes
+    // and block them. That gives a real solve order, not an all-free board.
     board = _fill(
       board,
       rng,
@@ -100,11 +75,14 @@ class LevelGenerator {
       occupied,
       minLength: 1,
       target: spec.fillCount,
-      maxFailures: 160,
+      maxFailures: 180,
     );
     occupied = _occupiedCount(board);
     nextId = occupied == 0 ? 0 : _maxId(board) + 1;
-    return _absorbHoles(_fillSingles(board, rng, spec, nextId, occupied), rng);
+    board = _absorbHoles(board, rng);
+    occupied = _occupiedCount(board);
+    nextId = occupied == 0 ? 0 : _maxId(board) + 1;
+    return _fillSingles(board, rng, spec, nextId, occupied);
   }
 
   Board _fill(
@@ -158,6 +136,9 @@ class LevelGenerator {
         final dirs = [...Direction.values];
         rng.shuffle(dirs);
         for (final facing in dirs) {
+          if (_isRim(head, spec) && _facesOffBoard(head, facing, spec)) {
+            continue;
+          }
           final cells = [head];
           if (!BoardEngine.pathWouldBeMovable(board, cells, facing)) continue;
           board = board.placeArrow(
@@ -191,19 +172,12 @@ class LevelGenerator {
         final extras = <GridPos>[
           for (final dir in dirs)
             GridPos(arrow.tail.row + dir.dRow, arrow.tail.col + dir.dCol),
-          GridPos(
-            arrow.head.row + arrow.direction.dRow,
-            arrow.head.col + arrow.direction.dCol,
-          ),
         ];
         for (final extra in extras) {
           if (!board.inBounds(extra.row, extra.col)) continue;
           if (board.at(extra.row, extra.col) != null) continue;
           if (arrow.occupies(extra)) continue;
-          final atHead = extra.row ==
-                  arrow.head.row + arrow.direction.dRow &&
-              extra.col == arrow.head.col + arrow.direction.dCol;
-          final cells = atHead ? [...arrow.cells, extra] : [extra, ...arrow.cells];
+          final cells = [extra, ...arrow.cells];
           if (!BoardEngine.pathWouldBeMovable(board, cells, arrow.direction)) {
             continue;
           }
@@ -240,11 +214,14 @@ class LevelGenerator {
     }
     if (empties.isEmpty) return null;
     rng.shuffle(empties);
-    final cap = minLength <= 1 ? empties.length : 80;
-    final limit = empties.length < cap ? empties.length : cap;
+    final heads = rng.nextInt(10) < 7
+        ? _orderHeads(board, empties)
+        : empties;
+    final cap = 100;
+    final limit = heads.length < cap ? heads.length : cap;
 
     for (var i = 0; i < limit; i++) {
-      final head = empties[i];
+      final head = heads[i];
       final dirs = [...Direction.values];
       rng.shuffle(dirs);
       for (final facing in dirs) {
@@ -277,26 +254,35 @@ class LevelGenerator {
     final room = remaining < 1
         ? 1
         : (remaining < maxLen ? remaining : maxLen);
-    if (minLength >= 5) {
-      final cap = room < 9 ? room : 9;
-      if (cap <= minLength) return cap;
-      return minLength + rng.nextInt(cap - minLength + 1);
+    final roll = rng.nextInt(100);
+    int length;
+    if (roll < 18) {
+      length = 1;
+    } else if (roll < 36) {
+      length = 2;
+    } else if (roll < 54) {
+      length = 3 + rng.nextInt(2);
+    } else if (roll < 72) {
+      length = 5 + rng.nextInt(3);
+    } else if (roll < 88) {
+      length = 8 + rng.nextInt(4);
+    } else {
+      length = 12 + rng.nextInt(5);
     }
-    if (minLength >= 2) {
-      final length = 2 + rng.nextInt(room < 3 ? 1 : 3);
-      return length > room ? room : length;
-    }
-    return 1 + rng.nextInt(room < 2 ? 1 : 2);
+    if (length < minLength) length = minLength;
+    if (length > room) length = room;
+    return length < 1 ? 1 : length;
   }
 
   int _pickTurns(SeededRng rng, int length) {
     if (length <= 2) return 0;
-    final maxTurns = length - 1 < 8 ? length - 1 : 8;
+    if (length == 3) return rng.nextInt(2);
+    final maxTurns = length - 1 < 6 ? length - 1 : 6;
     final roll = rng.nextInt(100);
-    if (roll < 10) return 0;
-    if (roll < 28) return 1 > maxTurns ? maxTurns : 1;
-    if (roll < 52) return 2 > maxTurns ? maxTurns : 2;
-    if (roll < 74) return 3 > maxTurns ? maxTurns : 3;
+    if (roll < 14) return 0;
+    if (roll < 34) return 1 > maxTurns ? maxTurns : 1;
+    if (roll < 56) return 2 > maxTurns ? maxTurns : 2;
+    if (roll < 76) return 3 > maxTurns ? maxTurns : 3;
     if (roll < 90) return 4 > maxTurns ? maxTurns : 4;
     return maxTurns;
   }
@@ -330,7 +316,8 @@ class LevelGenerator {
     }
 
     for (var i = 1; i < length; i++) {
-      final wantTurn = i > 1 && turnsLeft > 0 && turnSteps.contains(i);
+      final wantTurn = i > 1 && turnsLeft > 0 &&
+          (turnSteps.contains(i) || rng.nextInt(3) != 0);
       final options = <Direction>[];
       if (wantTurn) {
         options.addAll(growDir.perpendicular);
@@ -424,5 +411,48 @@ class LevelGenerator {
       if (arrow.id > max) max = arrow.id;
     }
     return max;
+  }
+
+  static bool _isRim(GridPos pos, CampaignSpec spec) =>
+      pos.row == 0 ||
+      pos.col == 0 ||
+      pos.row == spec.rows - 1 ||
+      pos.col == spec.cols - 1;
+
+  static bool _facesOffBoard(GridPos pos, Direction facing, CampaignSpec spec) {
+    final next = GridPos(pos.row + facing.dRow, pos.col + facing.dCol);
+    return next.row < 0 ||
+        next.col < 0 ||
+        next.row >= spec.rows ||
+        next.col >= spec.cols;
+  }
+
+  static List<GridPos> _orderHeads(Board board, List<GridPos> empties) {
+    final blockers = _exitLaneEmpties(board);
+    if (blockers.isEmpty) return empties;
+    final first = <GridPos>[];
+    final rest = <GridPos>[];
+    for (final pos in empties) {
+      if (blockers.contains(pos)) {
+        first.add(pos);
+      } else {
+        rest.add(pos);
+      }
+    }
+    return [...first, ...rest];
+  }
+
+  static Set<GridPos> _exitLaneEmpties(Board board) {
+    final spots = <GridPos>{};
+    for (final arrow in board.uniqueArrows) {
+      var r = arrow.head.row + arrow.direction.dRow;
+      var c = arrow.head.col + arrow.direction.dCol;
+      while (board.inBounds(r, c)) {
+        if (board.at(r, c) == null) spots.add(GridPos(r, c));
+        r += arrow.direction.dRow;
+        c += arrow.direction.dCol;
+      }
+    }
+    return spots;
   }
 }

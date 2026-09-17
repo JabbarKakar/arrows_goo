@@ -1,3 +1,4 @@
+import 'package:arrows_goo/game/engine/board_engine.dart';
 import 'package:arrows_goo/game/engine/board_solver.dart';
 import 'package:arrows_goo/game/engine/level_generator.dart';
 import 'package:arrows_goo/game/levels/level_catalog.dart';
@@ -52,12 +53,15 @@ void main() {
     test('generated mazes mix lengths and turns', () {
       final board = LevelGenerator(seed: 9).generate(CampaignSpec.forLevel(9));
       final arrows = board.uniqueArrows.toList();
-      expect(arrows.length, greaterThan(80));
-      expect(_occupancy(board), greaterThan(0.45));
-      expect(arrows.any((a) => a.cells.length <= 2), isTrue);
-      expect(arrows.any((a) => a.cells.length >= 6), isTrue);
-      expect(arrows.any((a) => a.turnCount >= 1), isTrue);
+      expect(arrows.length, greaterThan(35));
+      expect(_occupancy(board), greaterThan(0.4));
+      expect(arrows.where((a) => a.cells.length <= 2).length, greaterThan(8));
+      expect(arrows.any((a) => a.cells.length >= 8), isTrue);
       expect(arrows.any((a) => a.turnCount >= 2), isTrue);
+      final free = BoardEngine.movablePositions(board).length;
+      expect(free, greaterThan(0));
+      expect(free, lessThan(arrows.length));
+      expect(free, lessThan((arrows.length * 0.55).ceil()));
       for (final arrow in arrows) {
         expect(arrow.bendsTowardSelf, isFalse);
         if (arrow.cells.length < 2) continue;
@@ -75,7 +79,7 @@ void main() {
           isTrue,
           reason: 'Generated level $level should be solvable:\n$board',
         );
-        expect(board.arrowCount, greaterThan(80));
+        expect(board.arrowCount, greaterThan(35));
         final lengths = board.uniqueArrows.map((a) => a.cells.length).toSet();
         expect(lengths.length, greaterThan(1));
         expect(lengths.reduce((a, b) => a > b ? a : b), greaterThan(2));

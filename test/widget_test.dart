@@ -50,6 +50,28 @@ void main() {
     expect(find.byIcon(Icons.favorite_rounded), findsNWidgets(3));
   });
 
+  testWidgets('play board zooms in and out with InteractiveViewer', (tester) async {
+    await openPlay(tester);
+
+    expect(find.byKey(const Key('board_zoom_viewer')), findsOneWidget);
+    expect(find.byKey(const Key('zoom_in_button')), findsOneWidget);
+    expect(find.byKey(const Key('zoom_out_button')), findsOneWidget);
+
+    final viewer = tester.widget<InteractiveViewer>(
+      find.byKey(const Key('board_zoom_viewer')),
+    );
+    final controller = viewer.transformationController!;
+    final start = controller.value.getMaxScaleOnAxis();
+
+    await tester.tap(find.byKey(const Key('zoom_in_button')));
+    await tester.pump();
+    expect(controller.value.getMaxScaleOnAxis(), greaterThan(start));
+
+    await tester.tap(find.byKey(const Key('zoom_out_button')));
+    await tester.pump();
+    expect(controller.value.getMaxScaleOnAxis(), closeTo(start, 0.05));
+  });
+
   testWidgets('tapping a movable arrow slides it off the board', (tester) async {
     await openPlay(tester);
 
