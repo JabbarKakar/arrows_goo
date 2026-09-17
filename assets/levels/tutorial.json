@@ -1,0 +1,73 @@
+{
+  "levels": [
+    {
+      "id": 1,
+      "grid": [
+        "L U R",
+        "L D R",
+        "L D R"
+      ]
+    },
+    {
+      "id": 2,
+      "grid": [
+        "U U R",
+        "L R D",
+        "L D R"
+      ]
+    },
+    {
+      "id": 3,
+      "grid": [
+        "L U R",
+        "L R R",
+        "L D R"
+      ]
+    },
+    {
+      "id": 4,
+      "grid": [
+        "L U U R",
+        "L R D R",
+        "L R . .",
+        ". . . ."
+      ]
+    },
+    {
+      "id": 5,
+      "grid": [
+        "L U U R",
+        "L R D R",
+        "L R D D",
+        ". . . ."
+      ]
+    },
+    {
+      "id": 6,
+      "grid": [
+        "L U U R",
+        "L R D R",
+        "L R D D",
+        "L R . ."
+      ]
+    },
+    {
+      "id": 7,
+      "grid": [
+        "L U U R",
+        "L R D R",
+        "L R D D",
+        "L R D ."
+      ]
+    },
+    {
+      "id": 8,
+      "grid": [
+        "L U U R",
+        "L R D R",
+        "L R D D",
+        "L R D R"
+      ]
+    }
+  ]
+}
