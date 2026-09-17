@@ -471,7 +471,7 @@ class _SlidingArrowLayer extends StatelessWidget {
     ];
     if (centers.isEmpty) return const SizedBox.shrink();
 
-    final extend = cellSize * 0.46;
+    final extend = MazeLine.endExtension(cellSize);
     final travel = boardSize + cellSize * 2;
     Offset tail;
     if (centers.length == 1) {
@@ -503,6 +503,7 @@ class _SlidingArrowLayer extends StatelessWidget {
               direction: MazeTrain.headingOf(points, dir),
               color: mazeColor,
               stroke: MazeLine.strokeFor(cellSize),
+              cellSize: cellSize,
             ),
           );
         },
@@ -517,12 +518,14 @@ class _SlidingPathPainter extends CustomPainter {
     required this.direction,
     required this.color,
     required this.stroke,
+    required this.cellSize,
   });
 
   final List<Offset> points;
   final Direction direction;
   final Color color;
   final double stroke;
+  final double cellSize;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -532,11 +535,14 @@ class _SlidingPathPainter extends CustomPainter {
       direction: direction,
       color: color,
       stroke: stroke,
+      cellSize: cellSize,
     );
   }
 
   @override
   bool shouldRepaint(covariant _SlidingPathPainter oldDelegate) {
-    return oldDelegate.points != points || oldDelegate.color != color;
+    return oldDelegate.points != points ||
+        oldDelegate.color != color ||
+        oldDelegate.cellSize != cellSize;
   }
 }

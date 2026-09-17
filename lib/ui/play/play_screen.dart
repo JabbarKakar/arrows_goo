@@ -57,7 +57,7 @@ class PlayScreen extends ConsumerWidget {
       body: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(2, 2, 2, 4),
+            padding: const EdgeInsets.fromLTRB(16, 2, 16, 4),
             child: Column(
               children: [
                 Expanded(

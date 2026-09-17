@@ -1,33 +1,21 @@
-import 'package:arrows_goo/game/models/direction.dart';
 import 'package:arrows_goo/ui/widgets/arrow_tile.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('arrows are hairline thin', () {
-    expect(MazeLine.strokeFor(8), 1.0);
-    expect(MazeLine.strokeFor(40), 1.0);
+  test('adjacent arrows keep a gap between one head and the next tail', () {
+    const cell = 20.0;
+    final reach = MazeLine.endExtension(cell);
+    expect(reach, lessThan(cell * 0.4));
+    expect(cell - 2 * reach, greaterThan(cell * 0.3));
   });
 
-  test('each arrow is drawn only inside its own cell', () {
-    const cell = 40.0;
-    final left = MazeLine.segment(
-      row: 0,
-      col: 0,
-      direction: Direction.right,
+  test('arrow heads stay small and pointed', () {
+    const cell = 10.0;
+    final head = MazeLine.headLength(
       cellSize: cell,
-      padding: 0,
-      spacing: 0,
+      pathLength: MazeLine.endExtension(cell) * 2,
     );
-    final right = MazeLine.segment(
-      row: 0,
-      col: 1,
-      direction: Direction.left,
-      cellSize: cell,
-      padding: 0,
-      spacing: 0,
-    );
-
-    expect((left.$2 - left.$1).distance, lessThan(cell));
-    expect((right.$1 - left.$2).dx.abs(), greaterThan(8));
+    expect(head, greaterThanOrEqualTo(2.2));
+    expect(head, lessThanOrEqualTo(2.8));
   });
 }
