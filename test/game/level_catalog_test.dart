@@ -59,6 +59,7 @@ void main() {
       expect(arrows.any((a) => a.turnCount >= 1), isTrue);
       expect(arrows.any((a) => a.turnCount >= 2), isTrue);
       for (final arrow in arrows) {
+        expect(arrow.bendsTowardSelf, isFalse);
         if (arrow.cells.length < 2) continue;
         final from = arrow.cells[arrow.cells.length - 2];
         expect(arrow.head.row - from.row, arrow.direction.dRow);

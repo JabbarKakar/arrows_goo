@@ -43,6 +43,24 @@ class Arrow {
     return false;
   }
 
+  /// True when the polyline U-turns into itself or the head faces its own body.
+  bool get bendsTowardSelf {
+    if (cells.length < 2) return false;
+    final ahead = GridPos(
+      head.row + direction.dRow,
+      head.col + direction.dCol,
+    );
+    if (occupies(ahead)) return true;
+    for (var i = 0; i < cells.length; i++) {
+      for (var j = i + 2; j < cells.length; j++) {
+        final dr = (cells[i].row - cells[j].row).abs();
+        final dc = (cells[i].col - cells[j].col).abs();
+        if (dr + dc == 1) return true;
+      }
+    }
+    return false;
+  }
+
   @override
   bool operator ==(Object other) =>
       other is Arrow &&

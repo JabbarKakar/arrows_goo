@@ -213,6 +213,7 @@ class LevelGenerator {
             colorIndex: arrow.colorIndex,
             cells: cells,
           );
+          if (grown.bendsTowardSelf) continue;
           board = board.removeAt(arrow.head.row, arrow.head.col).placeArrow(grown);
           progressed = true;
           break;
@@ -256,14 +257,14 @@ class LevelGenerator {
           final cells = _growBody(board, rng, head, facing, length, turns);
           if (cells.length < minLength) continue;
           if (!BoardEngine.pathWouldBeMovable(board, cells, facing)) continue;
-          return board.placeArrow(
-            Arrow(
-              id: nextId,
-              direction: facing,
-              colorIndex: nextId,
-              cells: cells,
-            ),
+          final piece = Arrow(
+            id: nextId,
+            direction: facing,
+            colorIndex: nextId,
+            cells: cells,
           );
+          if (piece.bendsTowardSelf) continue;
+          return board.placeArrow(piece);
         }
       }
     }
@@ -352,6 +353,8 @@ class LevelGenerator {
         if (!board.inBounds(candidate.row, candidate.col)) continue;
         if (board.at(candidate.row, candidate.col) != null) continue;
         if (body.contains(candidate)) continue;
+        if (_touchesBodyExcept(body, pos, candidate)) continue;
+        if (_onFacingRay(head, facing, candidate)) continue;
         final proposed = [candidate, ...body.reversed];
         if (!BoardEngine.pathWouldBeMovable(board, proposed, facing)) continue;
         final score = _emptyNeighborCount(board, body, candidate);
@@ -369,6 +372,28 @@ class LevelGenerator {
     }
 
     return body.reversed.toList(growable: false);
+  }
+
+  static bool _touchesBodyExcept(List<GridPos> body, GridPos allowed, GridPos candidate) {
+    for (final cell in body) {
+      if (cell == allowed) continue;
+      final dr = (cell.row - candidate.row).abs();
+      final dc = (cell.col - candidate.col).abs();
+      if (dr + dc == 1) return true;
+    }
+    return false;
+  }
+
+  static bool _onFacingRay(GridPos head, Direction facing, GridPos candidate) {
+    var r = head.row + facing.dRow;
+    var c = head.col + facing.dCol;
+    for (var step = 0; step < 64; step++) {
+      if (r == candidate.row && c == candidate.col) return true;
+      r += facing.dRow;
+      c += facing.dCol;
+      if (r < -1 || c < -1 || r > 80 || c > 80) break;
+    }
+    return false;
   }
 
   static int _emptyNeighborCount(Board board, List<GridPos> body, GridPos pos) {

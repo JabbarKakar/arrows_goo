@@ -185,4 +185,32 @@ void main() {
     expect(BoardEngine.isMovable(board, 0, 0), isTrue);
     expect(BoardEngine.isMovable(board, 0, 1), isTrue);
   });
+
+  test('U-turn that folds onto itself is bending toward itself', () {
+    final folded = Arrow(
+      id: 0,
+      direction: Direction.left,
+      colorIndex: 0,
+      cells: const [
+        GridPos(0, 0),
+        GridPos(0, 1),
+        GridPos(1, 1),
+        GridPos(1, 0),
+      ],
+    );
+    expect(folded.bendsTowardSelf, isTrue);
+
+    final zig = Arrow(
+      id: 1,
+      direction: Direction.right,
+      colorIndex: 1,
+      cells: const [
+        GridPos(0, 0),
+        GridPos(0, 1),
+        GridPos(1, 1),
+        GridPos(1, 2),
+      ],
+    );
+    expect(zig.bendsTowardSelf, isFalse);
+  });
 }
