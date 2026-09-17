@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../../game/engine/board_engine.dart';
 import '../../game/models/board.dart';
+import '../../game/models/direction.dart';
 import '../../game/models/grid_pos.dart';
 import '../../game/session/play_state.dart';
-import 'arrow_palette.dart';
 import 'arrow_tile.dart';
+import 'maze_train.dart';
 
 class GameBoard extends StatefulWidget {
   const GameBoard({
@@ -41,20 +42,32 @@ class GameBoard extends StatefulWidget {
   State<GameBoard> createState() => _GameBoardState();
 }
 
-class _GameBoardState extends State<GameBoard>
-    with SingleTickerProviderStateMixin {
-  static const _padding = 12.0;
-  static const _spacing = 8.0;
-  static const _slideDuration = Duration(milliseconds: 360);
+class _GameBoardState extends State<GameBoard> with TickerProviderStateMixin {
+  static const _padding = 1.0;
+  static const _spacing = 0.0;
+  static const _slideDuration = Duration(milliseconds: 420);
 
   late final AnimationController _slideController;
   late final Animation<double> _slide;
+  late final AnimationController _hintController;
+  late final AnimationController _shakeController;
 
   @override
   void initState() {
     super.initState();
     _slideController = AnimationController(vsync: this, duration: _slideDuration);
     _slide = CurvedAnimation(parent: _slideController, curve: Curves.easeInCubic);
+    _hintController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 380),
+    );
+    if (widget.hintedPos != null) {
+      _hintController.repeat(reverse: true);
+    }
     if (widget.sliding != null) {
       _runSlide();
     }
@@ -70,9 +83,25 @@ class _GameBoardState extends State<GameBoard>
         _slideController.reset();
       }
     }
+    if (oldWidget.hintedPos != widget.hintedPos) {
+      if (widget.hintedPos == null) {
+        _hintController
+          ..stop()
+          ..reset();
+      } else {
+        _hintController.repeat(reverse: true);
+      }
+    }
+    if (oldWidget.shakeNonce != widget.shakeNonce && widget.shakingPos != null) {
+      _shakeController.forward(from: 0);
+    }
   }
 
   Future<void> _runSlide() async {
+    final cells = widget.sliding?.arrow.cells.length ?? 1;
+    _slideController.duration = Duration(
+      milliseconds: (240 + cells * 42).clamp(280, 900),
+    );
     await _slideController.forward(from: 0);
     if (mounted) widget.onSlideComplete?.call();
   }
@@ -80,12 +109,13 @@ class _GameBoardState extends State<GameBoard>
   @override
   void dispose() {
     _slideController.dispose();
+    _hintController.dispose();
+    _shakeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final guidancePath = widget.guidancePos == null
         ? const <GridPos>[]
         : BoardEngine.pathToEdge(
@@ -98,94 +128,137 @@ class _GameBoardState extends State<GameBoard>
 
     return AspectRatio(
       aspectRatio: 1,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: colors.outline),
-        ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final n = widget.board.cols;
-            final cellSize =
-                (constraints.maxWidth - _padding * 2 - _spacing * (n - 1)) / n;
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final n = widget.board.cols;
+          final cellSize =
+              (constraints.maxWidth - _padding * 2 - _spacing * (n - 1)) / n;
+          final mazeColor = Theme.of(context).colorScheme.onSurface;
 
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned.fill(
-                  child: Padding(
-                    padding: const EdgeInsets.all(_padding),
-                    child: Column(
-                    children: [
-                      for (var r = 0; r < widget.board.rows; r++) ...[
-                        if (r > 0) const SizedBox(height: _spacing),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              for (var c = 0; c < widget.board.cols; c++) ...[
-                                if (c > 0) const SizedBox(width: _spacing),
-                                Expanded(
-                                  child: _BoardCell(
-                                    key: Key('cell_${r}_$c'),
-                                    board: widget.board,
-                                    row: r,
-                                    col: c,
-                                    enabled: widget.enabled,
-                                    hinted: widget.hintedPos == GridPos(r, c),
-                                    shaking: widget.shakingPos == GridPos(r, c),
-                                    shakeNonce: widget.shakeNonce,
-                                    onTap: widget.onTap,
-                                    onLongPressStart: widget.onLongPressStart,
-                                    onLongPressEnd: widget.onLongPressEnd,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                ),
-                if (guidancePath.isNotEmpty)
-                  IgnorePointer(
+          return AnimatedBuilder(
+            animation: Listenable.merge([_hintController, _shakeController]),
+            builder: (context, _) {
+              final shakeT = _shakeController.value;
+              final shakeDx = math.sin(shakeT * math.pi * 6) * 7 * (1 - shakeT);
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
                     child: CustomPaint(
-                      size: Size(constraints.maxWidth, constraints.maxHeight),
-                      painter: _GuidancePainter(
-                        path: guidancePath,
+                      painter: _MazeArrowsPainter(
+                        board: widget.board,
                         cellSize: cellSize,
-                        clear: guidanceClear,
+                        mazeColor: mazeColor,
+                        hideId: widget.sliding?.arrow.id,
+                        hintedPos: widget.hintedPos,
+                        hintPulse: _hintController.value,
+                        shakingPos: widget.shakingPos,
+                        shakeDx: shakeDx,
                       ),
                     ),
                   ),
-                if (widget.sliding != null)
-                  _SlidingArrowLayer(
-                    sliding: widget.sliding!,
-                    cellSize: cellSize,
-                    animation: _slide,
-                    boardSize: constraints.maxWidth,
+                  Positioned.fill(
+                    child: widget.board.rows * widget.board.cols <= 32
+                        ? Padding(
+                            padding: const EdgeInsets.all(_padding),
+                            child: Column(
+                              children: [
+                                for (var r = 0; r < widget.board.rows; r++) ...[
+                                  if (r > 0) const SizedBox(height: _spacing),
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        for (var c = 0; c < widget.board.cols; c++) ...[
+                                          if (c > 0) const SizedBox(width: _spacing),
+                                          Expanded(
+                                            child: _HitCell(
+                                              key: Key('cell_${r}_$c'),
+                                              board: widget.board,
+                                              row: r,
+                                              col: c,
+                                              enabled: widget.enabled,
+                                              hinted: widget.hintedPos == GridPos(r, c),
+                                              onTap: widget.onTap,
+                                              onLongPressStart: widget.onLongPressStart,
+                                              onLongPressEnd: widget.onLongPressEnd,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          )
+                        : GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTapDown: widget.enabled
+                                ? (details) {
+                                    final pos = _cellAt(details.localPosition, cellSize);
+                                    if (pos != null) widget.onTap(pos);
+                                  }
+                                : null,
+                            onLongPressStart: widget.enabled &&
+                                    widget.onLongPressStart != null
+                                ? (details) {
+                                    final pos = _cellAt(details.localPosition, cellSize);
+                                    if (pos != null) widget.onLongPressStart!(pos);
+                                  }
+                                : null,
+                            onLongPressEnd: widget.enabled &&
+                                    widget.onLongPressEnd != null
+                                ? (_) => widget.onLongPressEnd!()
+                                : null,
+                            onLongPressCancel: widget.enabled
+                                ? widget.onLongPressEnd
+                                : null,
+                          ),
                   ),
-              ],
-            );
-          },
-        ),
+                  if (guidancePath.isNotEmpty)
+                    IgnorePointer(
+                      child: CustomPaint(
+                        size: Size(constraints.maxWidth, constraints.maxHeight),
+                        painter: _GuidancePainter(
+                          path: guidancePath,
+                          cellSize: cellSize,
+                          clear: guidanceClear,
+                        ),
+                      ),
+                    ),
+                  if (widget.sliding != null)
+                    _SlidingArrowLayer(
+                      sliding: widget.sliding!,
+                      cellSize: cellSize,
+                      animation: _slide,
+                      boardSize: constraints.maxWidth,
+                      mazeColor: mazeColor,
+                    ),
+                ],
+              );
+            },
+          );
+        },
       ),
     );
   }
+
+  GridPos? _cellAt(Offset local, double cellSize) {
+    final col = ((local.dx - _padding) / cellSize).floor();
+    final row = ((local.dy - _padding) / cellSize).floor();
+    if (!widget.board.inBounds(row, col)) return null;
+    return GridPos(row, col);
+  }
 }
 
-class _BoardCell extends StatelessWidget {
-  const _BoardCell({
+class _HitCell extends StatelessWidget {
+  const _HitCell({
     super.key,
     required this.board,
     required this.row,
     required this.col,
     required this.enabled,
     required this.hinted,
-    required this.shaking,
-    required this.shakeNonce,
     required this.onTap,
     this.onLongPressStart,
     this.onLongPressEnd,
@@ -196,8 +269,6 @@ class _BoardCell extends StatelessWidget {
   final int col;
   final bool enabled;
   final bool hinted;
-  final bool shaking;
-  final int shakeNonce;
   final ValueChanged<GridPos> onTap;
   final ValueChanged<GridPos>? onLongPressStart;
   final VoidCallback? onLongPressEnd;
@@ -205,27 +276,13 @@ class _BoardCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final arrow = board.at(row, col);
-    final colors = Theme.of(context).colorScheme;
     final pos = GridPos(row, col);
-
-    Widget child = arrow == null
-        ? DecoratedBox(
-            decoration: BoxDecoration(
-              color: colors.outline.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(12),
-            ),
-          )
-        : ArrowTile(
-            key: Key('arrow_${arrow.id}'),
-            direction: arrow.direction,
-            color: ArrowPalette.of(arrow.colorIndex),
-          );
-
-    if (hinted) {
-      child = _HintGlow(child: child);
+    Widget child = const SizedBox.expand();
+    if (arrow != null) {
+      child = KeyedSubtree(key: Key('arrow_${arrow.id}'), child: child);
     }
-    if (shaking) {
-      child = _ShakeCell(nonce: shakeNonce, child: child);
+    if (hinted) {
+      child = KeyedSubtree(key: const Key('hinted_cell'), child: child);
     }
 
     return GestureDetector(
@@ -238,120 +295,93 @@ class _BoardCell extends StatelessWidget {
           ? (_) => onLongPressEnd!()
           : null,
       onLongPressCancel: enabled ? onLongPressEnd : null,
-      child: hinted
-          ? KeyedSubtree(key: const Key('hinted_cell'), child: SizedBox.expand(child: child))
-          : SizedBox.expand(child: child),
+      child: child,
     );
   }
 }
 
-class _HintGlow extends StatefulWidget {
-  const _HintGlow({required this.child});
+class _MazeArrowsPainter extends CustomPainter {
+  const _MazeArrowsPainter({
+    required this.board,
+    required this.cellSize,
+    required this.mazeColor,
+    required this.hintPulse,
+    required this.shakeDx,
+    this.hideId,
+    this.hintedPos,
+    this.shakingPos,
+  });
 
-  final Widget child;
-
-  @override
-  State<_HintGlow> createState() => _HintGlowState();
-}
-
-class _HintGlowState extends State<_HintGlow>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  final Board board;
+  final double cellSize;
+  final Color mazeColor;
+  final int? hideId;
+  final GridPos? hintedPos;
+  final double hintPulse;
+  final GridPos? shakingPos;
+  final double shakeDx;
 
   @override
-  Widget build(BuildContext context) {
-    final primary = Theme.of(context).colorScheme.primary;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final pulse = 0.28 + (_controller.value * 0.42);
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: primary, width: 3),
-            boxShadow: [
-              BoxShadow(
-                color: primary.withValues(alpha: pulse),
-                blurRadius: 10 + (_controller.value * 8),
-                spreadRadius: 1,
-              ),
-            ],
+  void paint(Canvas canvas, Size size) {
+    final stroke = MazeLine.strokeFor(cellSize);
+    final hintedId = widgetHintId;
+    final shakingId = widgetShakeId;
+    for (final arrow in board.uniqueArrows) {
+      if (arrow.id == hideId) continue;
+      final points = [
+        for (final pos in arrow.cells)
+          MazeLine.cellCenter(
+            row: pos.row,
+            col: pos.col,
+            cellSize: cellSize,
+            padding: _GameBoardState._padding,
+            spacing: _GameBoardState._spacing,
           ),
-          child: child,
+      ];
+      canvas.save();
+      if (shakingId == arrow.id) {
+        canvas.translate(shakeDx, 0);
+      }
+      final hinted = hintedId == arrow.id;
+      if (hinted) {
+        MazeLine.paintPath(
+          canvas,
+          points: points,
+          direction: arrow.direction,
+          color: MazeLine.hintBlue.withValues(alpha: 0.35 + hintPulse * 0.45),
+          stroke: 1.8 + hintPulse * 0.8,
+          cellSize: cellSize,
+          head: false,
         );
-      },
-      child: widget.child,
-    );
-  }
-}
-
-class _ShakeCell extends StatefulWidget {
-  const _ShakeCell({required this.nonce, required this.child});
-
-  final int nonce;
-  final Widget child;
-
-  @override
-  State<_ShakeCell> createState() => _ShakeCellState();
-}
-
-class _ShakeCellState extends State<_ShakeCell>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 380),
-    )..forward();
-  }
-
-  @override
-  void didUpdateWidget(covariant _ShakeCell oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.nonce != widget.nonce) {
-      _controller.forward(from: 0);
+      }
+      MazeLine.paintPath(
+        canvas,
+        points: points,
+        direction: arrow.direction,
+        color: hinted ? MazeLine.hintBlue : mazeColor,
+        stroke: stroke,
+        cellSize: cellSize,
+      );
+      canvas.restore();
     }
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  int? get widgetHintId =>
+      hintedPos == null ? null : board.atPos(hintedPos!)?.id;
+
+  int? get widgetShakeId =>
+      shakingPos == null ? null : board.atPos(shakingPos!)?.id;
 
   @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final t = _controller.value;
-        final dx = math.sin(t * math.pi * 6) * 7 * (1 - t);
-        return Transform.translate(
-          offset: Offset(dx, 0),
-          transformHitTests: false,
-          child: child,
-        );
-      },
-      child: widget.child,
-    );
+  bool shouldRepaint(covariant _MazeArrowsPainter oldDelegate) {
+    return oldDelegate.board != board ||
+        oldDelegate.cellSize != cellSize ||
+        oldDelegate.mazeColor != mazeColor ||
+        oldDelegate.hideId != hideId ||
+        oldDelegate.hintedPos != hintedPos ||
+        oldDelegate.hintPulse != hintPulse ||
+        oldDelegate.shakingPos != shakingPos ||
+        oldDelegate.shakeDx != shakeDx;
   }
 }
 
@@ -368,29 +398,38 @@ class _GuidancePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const padding = _GameBoardState._padding;
-    const spacing = _GameBoardState._spacing;
-    final fill = Paint()
-      ..color = (clear ? const Color(0xFF2A9D8F) : const Color(0xFFE76F51))
-          .withValues(alpha: 0.32);
-    final stroke = Paint()
-      ..color = clear ? const Color(0xFF2A9D8F) : const Color(0xFFE76F51)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-
-    for (final pos in path) {
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          padding + pos.col * (cellSize + spacing),
-          padding + pos.row * (cellSize + spacing),
-          cellSize,
-          cellSize,
+    if (path.isEmpty) return;
+    final points = [
+      for (final pos in path)
+        MazeLine.cellCenter(
+          row: pos.row,
+          col: pos.col,
+          cellSize: cellSize,
+          padding: _GameBoardState._padding,
+          spacing: _GameBoardState._spacing,
         ),
-        const Radius.circular(12),
-      );
-      canvas.drawRRect(rect, fill);
-      canvas.drawRRect(rect, stroke);
-    }
+    ];
+    final color = clear ? MazeLine.hintBlue : const Color(0xFFE76F51);
+    MazeLine.paintPath(
+      canvas,
+      points: points,
+      direction: path.length >= 2
+          ? _dirFrom(path[path.length - 2], path.last)
+          : Direction.up,
+      color: color.withValues(alpha: 0.9),
+      stroke: 1.0,
+      cellSize: cellSize,
+      head: false,
+    );
+  }
+
+  static Direction _dirFrom(GridPos a, GridPos b) {
+    final dr = b.row - a.row;
+    final dc = b.col - a.col;
+    if (dr < 0) return Direction.up;
+    if (dr > 0) return Direction.down;
+    if (dc < 0) return Direction.left;
+    return Direction.right;
   }
 
   @override
@@ -407,47 +446,97 @@ class _SlidingArrowLayer extends StatelessWidget {
     required this.cellSize,
     required this.animation,
     required this.boardSize,
+    required this.mazeColor,
   });
 
   final SlidingArrow sliding;
   final double cellSize;
   final Animation<double> animation;
   final double boardSize;
+  final Color mazeColor;
 
   @override
   Widget build(BuildContext context) {
-    const padding = _GameBoardState._padding;
-    const spacing = _GameBoardState._spacing;
-    final origin = Offset(
-      padding + sliding.from.col * (cellSize + spacing),
-      padding + sliding.from.row * (cellSize + spacing),
-    );
     final dir = sliding.arrow.direction;
-    final travel = boardSize + cellSize;
-    final delta = Offset(dir.dCol * travel, dir.dRow * travel);
+    final facing = Offset(dir.dCol.toDouble(), dir.dRow.toDouble());
+    final centers = [
+      for (final pos in sliding.arrow.cells)
+        MazeLine.cellCenter(
+          row: pos.row,
+          col: pos.col,
+          cellSize: cellSize,
+          padding: _GameBoardState._padding,
+          spacing: _GameBoardState._spacing,
+        ),
+    ];
+    if (centers.isEmpty) return const SizedBox.shrink();
 
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        final t = animation.value;
-        return Positioned(
-          left: origin.dx + delta.dx * t,
-          top: origin.dy + delta.dy * t,
-          width: cellSize,
-          height: cellSize,
-          child: Opacity(
-            opacity: (1 - t * 0.45).clamp(0.0, 1.0),
-            child: Transform.scale(
-              scale: 1 - t * 0.18,
-              child: child,
+    final extend = cellSize * 0.46;
+    final travel = boardSize + cellSize * 2;
+    Offset tail;
+    if (centers.length == 1) {
+      tail = centers.first - facing * extend;
+    } else {
+      final back = centers.first - centers[1];
+      final len = back.distance;
+      tail = len == 0 ? centers.first : centers.first + back / len * extend;
+    }
+    final tip = centers.last + facing * extend;
+    final far = tip + facing * travel;
+    final rail = [tail, ...centers, tip, far];
+    final trainLen = MazeTrain.lengthOf([tail, ...centers, tip]);
+
+    return Positioned.fill(
+      child: AnimatedBuilder(
+        animation: animation,
+        builder: (context, child) {
+          final t = animation.value;
+          final points = MazeTrain.window(
+            rail: rail,
+            start: t * (trainLen + travel),
+            length: trainLen,
+          );
+          if (points.isEmpty) return const SizedBox.shrink();
+          return CustomPaint(
+            painter: _SlidingPathPainter(
+              points: points,
+              direction: MazeTrain.headingOf(points, dir),
+              color: mazeColor,
+              stroke: MazeLine.strokeFor(cellSize),
             ),
-          ),
-        );
-      },
-      child: ArrowTile(
-        direction: sliding.arrow.direction,
-        color: ArrowPalette.of(sliding.arrow.colorIndex),
+          );
+        },
       ),
     );
+  }
+}
+
+class _SlidingPathPainter extends CustomPainter {
+  const _SlidingPathPainter({
+    required this.points,
+    required this.direction,
+    required this.color,
+    required this.stroke,
+  });
+
+  final List<Offset> points;
+  final Direction direction;
+  final Color color;
+  final double stroke;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    MazeLine.paintTrain(
+      canvas,
+      points: points,
+      direction: direction,
+      color: color,
+      stroke: stroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _SlidingPathPainter oldDelegate) {
+    return oldDelegate.points != points || oldDelegate.color != color;
   }
 }

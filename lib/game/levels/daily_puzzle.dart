@@ -23,9 +23,9 @@ abstract final class DailyPuzzle {
   static CampaignSpec specFor(String id) {
     final variant = seedFor(id) % 3;
     return switch (variant) {
-      0 => const CampaignSpec(rows: 6, cols: 6, fillCount: 28),
-      1 => const CampaignSpec(rows: 7, cols: 7, fillCount: 38),
-      _ => const CampaignSpec(rows: 8, cols: 8, fillCount: 48),
+      0 => const CampaignSpec(rows: 36, cols: 36, fillCount: 1230),
+      1 => const CampaignSpec(rows: 42, cols: 42, fillCount: 1680),
+      _ => const CampaignSpec(rows: 48, cols: 48, fillCount: 2200),
     };
   }
 }

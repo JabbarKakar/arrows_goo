@@ -19,7 +19,7 @@ Future<void> openPlay(
 
 Future<void> pumpSlide(WidgetTester tester) async {
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 400));
+  await tester.pump(const Duration(milliseconds: 1000));
 }
 
 Future<void> solveLevel1(WidgetTester tester) async {

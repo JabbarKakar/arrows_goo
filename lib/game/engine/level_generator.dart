@@ -36,55 +36,21 @@ class CampaignSpec {
 
   final int rows;
   final int cols;
+
+  /// Target number of occupied cells (not piece count).
   final int fillCount;
 
   factory CampaignSpec.forLevel(int level) {
+    if (level <= 20) {
+      return const CampaignSpec(rows: 36, cols: 36, fillCount: 1230);
+    }
     if (level <= 40) {
-      final t = (level - 9) / 31;
-      return CampaignSpec(
-        rows: 5,
-        cols: 5,
-        fillCount: 16 + (t * 6).round(),
-      );
+      return const CampaignSpec(rows: 42, cols: 42, fillCount: 1680);
     }
     if (level <= 80) {
-      final t = (level - 41) / 39;
-      return CampaignSpec(
-        rows: 6,
-        cols: 6,
-        fillCount: 28 + (t * 5).round(),
-      );
+      return const CampaignSpec(rows: 48, cols: 48, fillCount: 2200);
     }
-    if (level <= 120) {
-      final t = (level - 81) / 39;
-      return CampaignSpec(
-        rows: 7,
-        cols: 7,
-        fillCount: 38 + (t * 6).round(),
-      );
-    }
-    if (level <= 180) {
-      final t = (level - 121) / 59;
-      return CampaignSpec(
-        rows: 8,
-        cols: 8,
-        fillCount: 52 + (t * 6).round(),
-      );
-    }
-    if (level <= 240) {
-      final t = (level - 181) / 59;
-      return CampaignSpec(
-        rows: 9,
-        cols: 9,
-        fillCount: 64 + (t * 8).round(),
-      );
-    }
-    final t = ((level - 241).clamp(0, 59)) / 59;
-    return CampaignSpec(
-      rows: 10,
-      cols: 10,
-      fillCount: 80 + (t * 10).round(),
-    );
+    return const CampaignSpec(rows: 52, cols: 52, fillCount: 2580);
   }
 }
 
@@ -97,43 +63,341 @@ class LevelGenerator {
     final rng = SeededRng(seed);
     var board = Board.empty(spec.rows, spec.cols);
     var nextId = 0;
-    final directions = Direction.values;
+    var occupied = 0;
 
-    for (var n = 0; n < spec.fillCount; n++) {
+    // Lots of short/medium pieces so the screen is packed with many arrows.
+    board = _fill(
+      board,
+      rng,
+      spec,
+      nextId,
+      occupied,
+      minLength: 5,
+      target: (spec.fillCount * 0.22).ceil(),
+      maxFailures: 50,
+    );
+    occupied = _occupiedCount(board);
+    nextId = occupied == 0 ? 0 : _maxId(board) + 1;
+
+    board = _fill(
+      board,
+      rng,
+      spec,
+      nextId,
+      occupied,
+      minLength: 2,
+      target: (spec.fillCount * 0.78).ceil(),
+      maxFailures: 90,
+    );
+    occupied = _occupiedCount(board);
+    nextId = occupied == 0 ? 0 : _maxId(board) + 1;
+
+    board = _fill(
+      board,
+      rng,
+      spec,
+      nextId,
+      occupied,
+      minLength: 1,
+      target: spec.fillCount,
+      maxFailures: 160,
+    );
+    occupied = _occupiedCount(board);
+    nextId = occupied == 0 ? 0 : _maxId(board) + 1;
+    return _absorbHoles(_fillSingles(board, rng, spec, nextId, occupied), rng);
+  }
+
+  Board _fill(
+    Board board,
+    SeededRng rng,
+    CampaignSpec spec,
+    int nextId,
+    int occupied, {
+    required int minLength,
+    required int target,
+    required int maxFailures,
+  }) {
+    var failures = 0;
+    var id = nextId;
+    var filled = occupied;
+    while (filled < target && failures < maxFailures) {
+      final placed = _tryPlace(board, rng, id, spec, filled, minLength: minLength);
+      if (placed == null) {
+        failures++;
+        continue;
+      }
+      board = placed;
+      id++;
+      filled = _occupiedCount(board);
+      failures = 0;
+    }
+    return board;
+  }
+
+  Board _fillSingles(
+    Board board,
+    SeededRng rng,
+    CampaignSpec spec,
+    int nextId,
+    int occupied,
+  ) {
+    var id = nextId;
+    var filled = occupied;
+    var progressed = true;
+    while (filled < spec.fillCount && progressed) {
+      progressed = false;
       final empties = <GridPos>[];
       for (var r = 0; r < spec.rows; r++) {
         for (var c = 0; c < spec.cols; c++) {
           if (board.at(r, c) == null) empties.add(GridPos(r, c));
         }
       }
-      if (empties.isEmpty) break;
       rng.shuffle(empties);
-
-      var placed = false;
-      for (final pos in empties) {
-        final order = [...directions];
-        rng.shuffle(order);
-        for (final direction in order) {
-          if (!BoardEngine.wouldBeMovable(board, pos.row, pos.col, direction)) {
-            continue;
-          }
-          board = board.place(
-            pos.row,
-            pos.col,
+      for (final head in empties) {
+        if (filled >= spec.fillCount) break;
+        final dirs = [...Direction.values];
+        rng.shuffle(dirs);
+        for (final facing in dirs) {
+          final cells = [head];
+          if (!BoardEngine.pathWouldBeMovable(board, cells, facing)) continue;
+          board = board.placeArrow(
             Arrow(
-              id: nextId++,
-              direction: direction,
-              colorIndex: pos.row * spec.cols + pos.col,
+              id: id,
+              direction: facing,
+              colorIndex: id,
+              cells: cells,
             ),
           );
-          placed = true;
+          id++;
+          filled++;
+          progressed = true;
           break;
         }
-        if (placed) break;
       }
-      if (!placed) break;
+    }
+    return board;
+  }
+
+  /// Pull leftover holes into a neighboring tail so cream gaps close.
+  Board _absorbHoles(Board board, SeededRng rng) {
+    var progressed = true;
+    while (progressed) {
+      progressed = false;
+      final pieces = board.uniqueArrows.toList();
+      rng.shuffle(pieces);
+      for (final arrow in pieces) {
+        final dirs = [...Direction.values];
+        rng.shuffle(dirs);
+        final extras = <GridPos>[
+          for (final dir in dirs)
+            GridPos(arrow.tail.row + dir.dRow, arrow.tail.col + dir.dCol),
+          GridPos(
+            arrow.head.row + arrow.direction.dRow,
+            arrow.head.col + arrow.direction.dCol,
+          ),
+        ];
+        for (final extra in extras) {
+          if (!board.inBounds(extra.row, extra.col)) continue;
+          if (board.at(extra.row, extra.col) != null) continue;
+          if (arrow.occupies(extra)) continue;
+          final atHead = extra.row ==
+                  arrow.head.row + arrow.direction.dRow &&
+              extra.col == arrow.head.col + arrow.direction.dCol;
+          final cells = atHead ? [...arrow.cells, extra] : [extra, ...arrow.cells];
+          if (!BoardEngine.pathWouldBeMovable(board, cells, arrow.direction)) {
+            continue;
+          }
+          final grown = Arrow(
+            id: arrow.id,
+            direction: arrow.direction,
+            colorIndex: arrow.colorIndex,
+            cells: cells,
+          );
+          board = board.removeAt(arrow.head.row, arrow.head.col).placeArrow(grown);
+          progressed = true;
+          break;
+        }
+        if (progressed) break;
+      }
+    }
+    return board;
+  }
+
+  Board? _tryPlace(
+    Board board,
+    SeededRng rng,
+    int nextId,
+    CampaignSpec spec,
+    int occupied, {
+    required int minLength,
+  }) {
+    final empties = <GridPos>[];
+    for (var r = 0; r < spec.rows; r++) {
+      for (var c = 0; c < spec.cols; c++) {
+        if (board.at(r, c) == null) empties.add(GridPos(r, c));
+      }
+    }
+    if (empties.isEmpty) return null;
+    rng.shuffle(empties);
+    final cap = minLength <= 1 ? empties.length : 80;
+    final limit = empties.length < cap ? empties.length : cap;
+
+    for (var i = 0; i < limit; i++) {
+      final head = empties[i];
+      final dirs = [...Direction.values];
+      rng.shuffle(dirs);
+      for (final facing in dirs) {
+        if (!BoardEngine.wouldBeMovable(board, head.row, head.col, facing)) {
+          continue;
+        }
+        for (var attempt = 0; attempt < 3; attempt++) {
+          final length = _pickLength(rng, spec, occupied, minLength);
+          final turns = _pickTurns(rng, length);
+          final cells = _growBody(board, rng, head, facing, length, turns);
+          if (cells.length < minLength) continue;
+          if (!BoardEngine.pathWouldBeMovable(board, cells, facing)) continue;
+          return board.placeArrow(
+            Arrow(
+              id: nextId,
+              direction: facing,
+              colorIndex: nextId,
+              cells: cells,
+            ),
+          );
+        }
+      }
+    }
+    return null;
+  }
+
+  int _pickLength(SeededRng rng, CampaignSpec spec, int occupied, int minLength) {
+    final maxLen = spec.rows + spec.cols - 1;
+    final remaining = spec.fillCount - occupied;
+    final room = remaining < 1
+        ? 1
+        : (remaining < maxLen ? remaining : maxLen);
+    if (minLength >= 5) {
+      final cap = room < 9 ? room : 9;
+      if (cap <= minLength) return cap;
+      return minLength + rng.nextInt(cap - minLength + 1);
+    }
+    if (minLength >= 2) {
+      final length = 2 + rng.nextInt(room < 3 ? 1 : 3);
+      return length > room ? room : length;
+    }
+    return 1 + rng.nextInt(room < 2 ? 1 : 2);
+  }
+
+  int _pickTurns(SeededRng rng, int length) {
+    if (length <= 2) return 0;
+    final maxTurns = length - 1 < 8 ? length - 1 : 8;
+    final roll = rng.nextInt(100);
+    if (roll < 10) return 0;
+    if (roll < 28) return 1 > maxTurns ? maxTurns : 1;
+    if (roll < 52) return 2 > maxTurns ? maxTurns : 2;
+    if (roll < 74) return 3 > maxTurns ? maxTurns : 3;
+    if (roll < 90) return 4 > maxTurns ? maxTurns : 4;
+    return maxTurns;
+  }
+
+  /// Walk backward from [head] so the stored path is tail → head.
+  /// The first step is always opposite the facing, so the last segment
+  /// points the same way as the arrow head.
+  List<GridPos> _growBody(
+    Board board,
+    SeededRng rng,
+    GridPos head,
+    Direction facing,
+    int length,
+    int turnBudget,
+  ) {
+    if (length <= 1) return [head];
+
+    final body = <GridPos>[head];
+    var pos = head;
+    var growDir = facing.opposite;
+    var turnsLeft = turnBudget;
+
+    final turnSteps = <int>{};
+    if (turnBudget > 0 && length > 2) {
+      final candidates = [for (var i = 2; i < length; i++) i];
+      rng.shuffle(candidates);
+      final take = turnBudget < candidates.length ? turnBudget : candidates.length;
+      for (var t = 0; t < take; t++) {
+        turnSteps.add(candidates[t]);
+      }
     }
 
-    return board;
+    for (var i = 1; i < length; i++) {
+      final wantTurn = i > 1 && turnsLeft > 0 && turnSteps.contains(i);
+      final options = <Direction>[];
+      if (wantTurn) {
+        options.addAll(growDir.perpendicular);
+        rng.shuffle(options);
+        options.add(growDir);
+      } else {
+        options.add(growDir);
+        if (i > 1) {
+          final side = [...growDir.perpendicular];
+          rng.shuffle(side);
+          options.addAll(side);
+        }
+      }
+
+      GridPos? next;
+      Direction? used;
+      var best = 99;
+      for (final dir in options) {
+        final candidate = GridPos(pos.row + dir.dRow, pos.col + dir.dCol);
+        if (!board.inBounds(candidate.row, candidate.col)) continue;
+        if (board.at(candidate.row, candidate.col) != null) continue;
+        if (body.contains(candidate)) continue;
+        final proposed = [candidate, ...body.reversed];
+        if (!BoardEngine.pathWouldBeMovable(board, proposed, facing)) continue;
+        final score = _emptyNeighborCount(board, body, candidate);
+        if (next == null || score < best) {
+          next = candidate;
+          used = dir;
+          best = score;
+        }
+      }
+      if (next == null || used == null) break;
+      if (used != growDir) turnsLeft--;
+      growDir = used;
+      body.add(next);
+      pos = next;
+    }
+
+    return body.reversed.toList(growable: false);
+  }
+
+  static int _emptyNeighborCount(Board board, List<GridPos> body, GridPos pos) {
+    var count = 0;
+    for (final dir in Direction.values) {
+      final next = GridPos(pos.row + dir.dRow, pos.col + dir.dCol);
+      if (!board.inBounds(next.row, next.col)) continue;
+      if (board.at(next.row, next.col) != null) continue;
+      if (body.contains(next) || next == pos) continue;
+      count++;
+    }
+    return count;
+  }
+
+  static int _occupiedCount(Board board) {
+    var count = 0;
+    for (final row in board.cells) {
+      for (final cell in row) {
+        if (cell != null) count++;
+      }
+    }
+    return count;
+  }
+
+  static int _maxId(Board board) {
+    var max = -1;
+    for (final arrow in board.uniqueArrows) {
+      if (arrow.id > max) max = arrow.id;
+    }
+    return max;
   }
 }

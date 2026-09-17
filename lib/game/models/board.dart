@@ -44,6 +44,7 @@ class Board {
               id: nextId++,
               direction: Direction.parse(token),
               colorIndex: r * colCount + c,
+              cells: [GridPos(r, c)],
             ),
           );
         }
@@ -73,20 +74,35 @@ class Board {
   }
 
   int get arrowCount {
-    var count = 0;
+    final ids = <int>{};
     for (final row in cells) {
       for (final cell in row) {
-        if (cell != null) count++;
+        if (cell != null) ids.add(cell.id);
       }
     }
-    return count;
+    return ids.length;
+  }
+
+  Iterable<Arrow> get uniqueArrows sync* {
+    final seen = <int>{};
+    for (final row in cells) {
+      for (final cell in row) {
+        if (cell != null && seen.add(cell.id)) yield cell;
+      }
+    }
   }
 
   Board removeAt(int row, int col) {
+    final arrow = at(row, col);
+    if (arrow == null) return this;
     final next = [
       for (final existing in cells) [...existing],
     ];
-    next[row][col] = null;
+    for (final pos in arrow.cells) {
+      if (inBounds(pos.row, pos.col) && next[pos.row][pos.col]?.id == arrow.id) {
+        next[pos.row][pos.col] = null;
+      }
+    }
     return Board(rows: rows, cols: cols, cells: next);
   }
 
@@ -99,10 +115,24 @@ class Board {
   }
 
   Board place(int row, int col, Arrow arrow) {
+    final piece = arrow.cells.isEmpty
+        ? Arrow(
+            id: arrow.id,
+            direction: arrow.direction,
+            colorIndex: arrow.colorIndex,
+            cells: [GridPos(row, col)],
+          )
+        : arrow;
+    return placeArrow(piece);
+  }
+
+  Board placeArrow(Arrow arrow) {
     final next = [
       for (final existing in cells) [...existing],
     ];
-    next[row][col] = arrow;
+    for (final pos in arrow.cells) {
+      next[pos.row][pos.col] = arrow;
+    }
     return Board(rows: rows, cols: cols, cells: next);
   }
 

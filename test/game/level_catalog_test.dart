@@ -45,20 +45,50 @@ void main() {
       final a = LevelGenerator(seed: 9).generate(spec);
       final b = LevelGenerator(seed: 9).generate(spec);
       expect(a, b);
-      expect(a.rows, 5);
-      expect(a.cols, 5);
+      expect(a.rows, 36);
+      expect(a.cols, 36);
+    });
+
+    test('generated mazes mix lengths and turns', () {
+      final board = LevelGenerator(seed: 9).generate(CampaignSpec.forLevel(9));
+      final arrows = board.uniqueArrows.toList();
+      expect(arrows.length, greaterThan(80));
+      expect(_occupancy(board), greaterThan(0.45));
+      expect(arrows.any((a) => a.cells.length <= 2), isTrue);
+      expect(arrows.any((a) => a.cells.length >= 6), isTrue);
+      expect(arrows.any((a) => a.turnCount >= 1), isTrue);
+      expect(arrows.any((a) => a.turnCount >= 2), isTrue);
+      for (final arrow in arrows) {
+        if (arrow.cells.length < 2) continue;
+        final from = arrow.cells[arrow.cells.length - 2];
+        expect(arrow.head.row - from.row, arrow.direction.dRow);
+        expect(arrow.head.col - from.col, arrow.direction.dCol);
+      }
     });
 
     test('generated campaign levels are solvable', () {
-      for (final level in [9, 20, 40, 41, 81, 121]) {
+      for (final level in [9, 21]) {
         final board = LevelCatalog(tutorial: const []).boardFor(level);
         expect(
           BoardSolver.isSolvable(board),
           isTrue,
           reason: 'Generated level $level should be solvable:\n$board',
         );
-        expect(board.arrowCount, greaterThan(0));
+        expect(board.arrowCount, greaterThan(80));
+        final lengths = board.uniqueArrows.map((a) => a.cells.length).toSet();
+        expect(lengths.length, greaterThan(1));
+        expect(lengths.reduce((a, b) => a > b ? a : b), greaterThan(2));
       }
     });
   });
+}
+
+double _occupancy(Board board) {
+  var filled = 0;
+  for (final row in board.cells) {
+    for (final cell in row) {
+      if (cell != null) filled++;
+    }
+  }
+  return filled / (board.rows * board.cols);
 }

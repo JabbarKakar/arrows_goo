@@ -35,6 +35,18 @@ enum Direction {
     right => 'R',
   };
 
+  Direction get opposite => switch (this) {
+    up => down,
+    down => up,
+    left => right,
+    right => left,
+  };
+
+  List<Direction> get perpendicular => switch (this) {
+    up || down => const [left, right],
+    left || right => const [up, down],
+  };
+
   static Direction parse(String token) {
     return switch (token.toUpperCase()) {
       'U' => up,

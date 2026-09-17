@@ -134,7 +134,7 @@ void main() {
     expect(container.read(campaignProgressProvider), 1);
 
     var guard = 0;
-    while (!read().board.isCleared && guard < 80) {
+    while (!read().board.isCleared && guard < 2500) {
       final moves = BoardEngine.movablePositions(read().board);
       expect(moves, isNotEmpty);
       session().tap(moves.first.row, moves.first.col);

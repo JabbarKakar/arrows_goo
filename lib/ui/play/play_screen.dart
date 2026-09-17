@@ -56,7 +56,7 @@ class PlayScreen extends ConsumerWidget {
       body: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(2, 2, 2, 4),
             child: Column(
               children: [
                 Expanded(
@@ -78,7 +78,7 @@ class PlayScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 OutlinedButton.icon(
                   key: const Key('hint_button'),
                   onPressed: session.inputLocked
