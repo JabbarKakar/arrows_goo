@@ -43,7 +43,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.widgetWithText(AppBar, 'Level 1'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Level 1 · Easy'), findsOneWidget);
     expect(find.byKey(const Key('tutorial_overlay')), findsOneWidget);
     expect(find.text('Tap an arrow that can reach the edge.'), findsOneWidget);
     expect(find.byKey(const Key('cell_0_0')), findsOneWidget);
@@ -165,13 +165,13 @@ void main() {
     );
 
     expect(find.text('Continue'), findsOneWidget);
-    expect(find.text('Level 5'), findsOneWidget);
+    expect(find.text('Level 5 · Easy'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('play_button')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
-    expect(find.widgetWithText(AppBar, 'Level 5'), findsOneWidget);
+    expect(find.widgetWithText(AppBar, 'Level 5 · Easy'), findsOneWidget);
     expect(find.byKey(const Key('cell_3_3')), findsOneWidget);
   });
 
@@ -232,7 +232,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Play'), findsOneWidget);
-    expect(find.text('Level 1'), findsOneWidget);
+    expect(find.text('Level 1 · Easy'), findsOneWidget);
   });
 
   testWidgets('first-run tutorial dismisses with Got it', (tester) async {

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/storage/app_settings.dart';
 import '../../core/storage/tutorial_seen.dart';
+import '../../game/levels/difficulty.dart';
 import '../../game/session/play_session.dart';
 import '../widgets/game_board.dart';
 import '../widgets/hearts_hud.dart';
@@ -36,7 +37,11 @@ class PlayScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(session.isDaily ? 'Daily' : 'Level ${session.levelNumber}'),
+        title: Text(
+          session.isDaily
+              ? 'Daily'
+              : 'Level ${session.levelNumber} · ${DifficultyTier.forLevel(session.levelNumber).label}',
+        ),
         leading: IconButton(
           key: const Key('pause_button'),
           tooltip: session.isPaused ? 'Resume' : 'Pause',

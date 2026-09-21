@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/routing/app_routes.dart';
 import '../../core/storage/campaign_progress.dart';
+import '../../game/levels/difficulty.dart';
 import '../../game/session/play_session.dart';
 import '../../game/session/play_state.dart';
 
@@ -58,7 +59,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'Level $currentLevel',
+                'Level $currentLevel · ${DifficultyTier.forLevel(currentLevel).label}',
                 key: const Key('home_level_label'),
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
