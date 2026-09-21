@@ -84,29 +84,54 @@ void main() {
       expect(hard.rows, lessThan(superHard.rows));
       expect(superHard.rows, lessThan(nightmare.rows));
 
-      expect(easy.fillCount, lessThan(medium.fillCount));
-      expect(medium.fillCount, lessThan(hard.fillCount));
-      expect(hard.fillCount, lessThan(superHard.fillCount));
-      expect(superHard.fillCount, lessThan(nightmare.fillCount));
+      expect(
+        easy.arrowCount,
+        inInclusiveRange(easy.tier.minArrows, easy.tier.maxArrows),
+      );
+      expect(
+        medium.arrowCount,
+        inInclusiveRange(medium.tier.minArrows, medium.tier.maxArrows),
+      );
+      expect(
+        hard.arrowCount,
+        inInclusiveRange(hard.tier.minArrows, hard.tier.maxArrows),
+      );
+      expect(
+        superHard.arrowCount,
+        inInclusiveRange(superHard.tier.minArrows, superHard.tier.maxArrows),
+      );
+      expect(
+        nightmare.arrowCount,
+        inInclusiveRange(nightmare.tier.minArrows, nightmare.tier.maxArrows),
+      );
+
+      expect(easy.arrowCount, lessThan(medium.arrowCount));
+      expect(medium.arrowCount, lessThan(hard.arrowCount));
+      expect(hard.arrowCount, lessThan(superHard.arrowCount));
+      expect(superHard.arrowCount, lessThan(nightmare.arrowCount));
 
       expect(easy.blockChance, lessThan(medium.blockChance));
       expect(hard.blockChance, greaterThanOrEqualTo(8));
       expect(nightmare.blockChance, greaterThanOrEqualTo(9));
-      expect(
-        nightmare.fillCount / (nightmare.rows * nightmare.cols),
-        greaterThan(easy.fillCount / (easy.rows * easy.cols)),
-      );
     });
   });
 
   group('LevelGenerator', () {
+    test('super hard boards land in the 200-250 arrow range', () {
+      const level = 33;
+      expect(DifficultyTier.forLevel(level), DifficultyTier.superHard);
+      final spec = CampaignSpec.forLevel(level);
+      expect(spec.arrowCount, inInclusiveRange(200, 250));
+      final board = LevelGenerator(seed: level).generate(spec);
+      expect(board.arrowCount, inInclusiveRange(200, 250));
+    });
+
     test('same seed produces the same board', () {
       final spec = CampaignSpec.forLevel(9);
       final a = LevelGenerator(seed: 9).generate(spec);
       final b = LevelGenerator(seed: 9).generate(spec);
       expect(a, b);
-      expect(a.rows, spec.rows);
-      expect(a.cols, spec.cols);
+      expect(a.arrowCount, b.arrowCount);
     });
 
     test('easy boards are small with mixed shorts and some blocking', () {
@@ -114,9 +139,8 @@ void main() {
       final board =
           LevelGenerator(seed: level).generate(CampaignSpec.forLevel(level));
       final arrows = board.uniqueArrows.toList();
-      expect(board.rows, lessThan(18));
-      expect(arrows.length, greaterThan(8));
-      expect(arrows.length, lessThan(55));
+      expect(board.rows, lessThan(24));
+      expect(arrows.length, inInclusiveRange(35, 50));
       expect(arrows.any((a) => a.cells.length <= 2), isTrue);
       final free = BoardEngine.movablePositions(board).length;
       expect(free, greaterThan(0));
@@ -128,7 +152,7 @@ void main() {
       final board =
           LevelGenerator(seed: level).generate(CampaignSpec.forLevel(level));
       final arrows = board.uniqueArrows.toList();
-      expect(arrows.length, greaterThan(20));
+      expect(arrows.length, inInclusiveRange(70, 100));
       expect(_occupancy(board), greaterThan(0.4));
       expect(arrows.where((a) => a.cells.length <= 2).length, greaterThan(4));
       expect(arrows.any((a) => a.cells.length >= 5), isTrue);
@@ -156,8 +180,21 @@ void main() {
           .generate(CampaignSpec.forLevel(mediumLevel));
       final hard =
           LevelGenerator(seed: hardLevel).generate(CampaignSpec.forLevel(hardLevel));
-      expect(easy.uniqueArrows.length, lessThan(medium.uniqueArrows.length));
-      expect(medium.uniqueArrows.length, lessThan(hard.uniqueArrows.length));
+      expect(
+        easy.arrowCount,
+        inInclusiveRange(DifficultyTier.easy.minArrows, DifficultyTier.easy.maxArrows),
+      );
+      expect(
+        medium.arrowCount,
+        inInclusiveRange(
+          DifficultyTier.medium.minArrows,
+          DifficultyTier.medium.maxArrows,
+        ),
+      );
+      expect(
+        hard.arrowCount,
+        inInclusiveRange(DifficultyTier.hard.minArrows, DifficultyTier.hard.maxArrows),
+      );
       expect(BoardSolver.isSolvable(easy), isTrue);
       expect(BoardSolver.isSolvable(medium), isTrue);
       expect(BoardSolver.isSolvable(hard), isTrue);

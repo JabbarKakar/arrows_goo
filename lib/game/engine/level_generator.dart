@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../levels/difficulty.dart';
 import '../models/arrow.dart';
 import '../models/board.dart';
@@ -32,7 +34,7 @@ class CampaignSpec {
   const CampaignSpec({
     required this.rows,
     required this.cols,
-    required this.fillCount,
+    required this.arrowCount,
     this.tier = DifficultyTier.medium,
     this.blockChance = 7,
   });
@@ -40,8 +42,8 @@ class CampaignSpec {
   final int rows;
   final int cols;
 
-  /// Target number of occupied cells (not piece count).
-  final int fillCount;
+  /// Target number of arrows (unique pieces) on the board.
+  final int arrowCount;
   final DifficultyTier tier;
 
   /// Out of 10 placements, how often a new head sits on an earlier exit lane.
@@ -50,60 +52,41 @@ class CampaignSpec {
   factory CampaignSpec.forLevel(int level) {
     final clamped = level < 1 ? 1 : level;
     final tier = DifficultyTier.forLevel(clamped);
-    final progress = ((clamped - 1) / 150).clamp(0.0, 1.0);
-    final size0 = switch (tier) {
-      DifficultyTier.easy => 8,
-      DifficultyTier.medium => 16,
-      DifficultyTier.hard => 28,
-      DifficultyTier.superHard => 42,
-      DifficultyTier.nightmarish => 52,
+    final span = tier.maxArrows - tier.minArrows;
+    final arrowCount = span <= 0
+        ? tier.minArrows
+        : tier.minArrows + SeededRng(clamped * 9176 + 13).nextInt(span + 1);
+    final avgLen = switch (tier) {
+      DifficultyTier.easy => 2.4,
+      DifficultyTier.medium => 2.8,
+      DifficultyTier.hard => 3.0,
+      DifficultyTier.superHard => 2.6,
+      DifficultyTier.nightmarish => 2.3,
     };
-    final size1 = switch (tier) {
-      DifficultyTier.easy => 14,
-      DifficultyTier.medium => 24,
-      DifficultyTier.hard => 38,
-      DifficultyTier.superHard => 50,
-      DifficultyTier.nightmarish => 60,
+    final occupancy = switch (tier) {
+      DifficultyTier.easy => 0.38,
+      DifficultyTier.medium => 0.40,
+      DifficultyTier.hard => 0.42,
+      DifficultyTier.superHard => 0.44,
+      DifficultyTier.nightmarish => 0.46,
     };
-    final occ0 = switch (tier) {
-      DifficultyTier.easy => 0.42,
-      DifficultyTier.medium => 0.68,
-      DifficultyTier.hard => 0.84,
-      DifficultyTier.superHard => 0.90,
-      DifficultyTier.nightmarish => 0.94,
-    };
-    final occ1 = switch (tier) {
-      DifficultyTier.easy => 0.58,
-      DifficultyTier.medium => 0.80,
-      DifficultyTier.hard => 0.90,
-      DifficultyTier.superHard => 0.94,
-      DifficultyTier.nightmarish => 0.97,
-    };
-    final block0 = switch (tier) {
-      DifficultyTier.easy => 1,
-      DifficultyTier.medium => 5,
-      DifficultyTier.hard => 8,
+    var size = math.sqrt(arrowCount * avgLen / occupancy).ceil();
+    if (size * size < arrowCount) {
+      size = math.sqrt(arrowCount.toDouble()).ceil();
+    }
+    final blockChance = switch (tier) {
+      DifficultyTier.easy => 1 + SeededRng(clamped).nextInt(3),
+      DifficultyTier.medium => 5 + SeededRng(clamped).nextInt(3),
+      DifficultyTier.hard => 8 + SeededRng(clamped).nextInt(2),
       DifficultyTier.superHard => 9,
       DifficultyTier.nightmarish => 10,
     };
-    final block1 = switch (tier) {
-      DifficultyTier.easy => 3,
-      DifficultyTier.medium => 7,
-      DifficultyTier.hard => 9,
-      DifficultyTier.superHard => 10,
-      DifficultyTier.nightmarish => 10,
-    };
-    final size = (size0 + (size1 - size0) * progress).round();
-    final occupancy = occ0 + (occ1 - occ0) * progress;
-    final blockChance = (block0 + (block1 - block0) * progress).round();
     return CampaignSpec(
       rows: size,
       cols: size,
-      fillCount: (size * size * occupancy).round(),
+      arrowCount: arrowCount,
       tier: tier,
-      blockChance: blockChance < 0
-          ? 0
-          : (blockChance > 10 ? 10 : blockChance),
+      blockChance: blockChance,
     );
   }
 }
@@ -114,60 +97,64 @@ class LevelGenerator {
   final int seed;
 
   Board generate(CampaignSpec spec) {
+    var rows = spec.rows;
+    var cols = spec.cols;
+    var board = _generateOnce(spec);
+    var extra = 0;
+    while (board.arrowCount < spec.arrowCount && extra < 8) {
+      extra += 4;
+      board = _generateOnce(
+        CampaignSpec(
+          rows: rows + extra,
+          cols: cols + extra,
+          arrowCount: spec.arrowCount,
+          tier: spec.tier,
+          blockChance: spec.blockChance,
+        ),
+      );
+    }
+    return board;
+  }
+
+  Board _generateOnce(CampaignSpec spec) {
     final rng = SeededRng(seed);
     var board = Board.empty(spec.rows, spec.cols);
     var nextId = 0;
-    var occupied = 0;
-
-    // Reverse-place mixed lengths so later pieces sit on earlier exit lanes
-    // and block them. That gives a real solve order, not an all-free board.
     board = _fill(
       board,
       rng,
       spec,
       nextId,
-      occupied,
       minLength: 1,
-      target: spec.fillCount,
-      maxFailures: switch (spec.tier) {
-        DifficultyTier.easy => 70,
-        DifficultyTier.medium => 120,
-        DifficultyTier.hard => 180,
-        DifficultyTier.superHard => 240,
-        DifficultyTier.nightmarish => 320,
-      },
+      target: spec.arrowCount,
+      maxFailures: spec.arrowCount * 6,
     );
-    occupied = _occupiedCount(board);
-    nextId = occupied == 0 ? 0 : _maxId(board) + 1;
+    nextId = board.arrowCount == 0 ? 0 : _maxId(board) + 1;
+    board = _fillSingles(board, rng, spec, nextId);
+    nextId = board.arrowCount == 0 ? 0 : _maxId(board) + 1;
     board = _absorbHoles(board, rng);
-    occupied = _occupiedCount(board);
-    nextId = occupied == 0 ? 0 : _maxId(board) + 1;
-    if (spec.tier == DifficultyTier.easy) return board;
-    return _fillSingles(board, rng, spec, nextId, occupied);
+    return board;
   }
 
   Board _fill(
     Board board,
     SeededRng rng,
     CampaignSpec spec,
-    int nextId,
-    int occupied, {
+    int nextId, {
     required int minLength,
     required int target,
     required int maxFailures,
   }) {
     var failures = 0;
     var id = nextId;
-    var filled = occupied;
-    while (filled < target && failures < maxFailures) {
-      final placed = _tryPlace(board, rng, id, spec, filled, minLength: minLength);
+    while (board.arrowCount < target && failures < maxFailures) {
+      final placed = _tryPlace(board, rng, id, spec, minLength: minLength);
       if (placed == null) {
         failures++;
         continue;
       }
       board = placed;
       id++;
-      filled = _occupiedCount(board);
       failures = 0;
     }
     return board;
@@ -177,13 +164,12 @@ class LevelGenerator {
     Board board,
     SeededRng rng,
     CampaignSpec spec,
-    int nextId,
-    int occupied,
-  ) {
+    int nextId, {
+    bool allowRimOutward = false,
+  }) {
     var id = nextId;
-    var filled = occupied;
     var progressed = true;
-    while (filled < spec.fillCount && progressed) {
+    while (board.arrowCount < spec.arrowCount && progressed) {
       progressed = false;
       final empties = <GridPos>[];
       for (var r = 0; r < spec.rows; r++) {
@@ -196,11 +182,13 @@ class LevelGenerator {
           ? _orderHeads(board, empties)
           : empties;
       for (final head in heads) {
-        if (filled >= spec.fillCount) break;
+        if (board.arrowCount >= spec.arrowCount) break;
         final dirs = [...Direction.values];
         rng.shuffle(dirs);
         for (final facing in dirs) {
-          if (_isRim(head, spec) && _facesOffBoard(head, facing, spec)) {
+          if (!allowRimOutward &&
+              _isRim(head, spec) &&
+              _facesOffBoard(head, facing, spec)) {
             continue;
           }
           final cells = [head];
@@ -214,11 +202,13 @@ class LevelGenerator {
             ),
           );
           id++;
-          filled++;
           progressed = true;
           break;
         }
       }
+    }
+    if (board.arrowCount < spec.arrowCount && !allowRimOutward) {
+      return _fillSingles(board, rng, spec, id, allowRimOutward: true);
     }
     return board;
   }
@@ -233,10 +223,17 @@ class LevelGenerator {
       for (final arrow in pieces) {
         final dirs = [...Direction.values];
         rng.shuffle(dirs);
-        final extras = <GridPos>[
-          for (final dir in dirs)
-            GridPos(arrow.tail.row + dir.dRow, arrow.tail.col + dir.dCol),
-        ];
+        final extras = arrow.cells.length == 1
+            ? [
+                GridPos(
+                  arrow.head.row - arrow.direction.dRow,
+                  arrow.head.col - arrow.direction.dCol,
+                ),
+              ]
+            : [
+                for (final dir in dirs)
+                  GridPos(arrow.tail.row + dir.dRow, arrow.tail.col + dir.dCol),
+              ];
         for (final extra in extras) {
           if (!board.inBounds(extra.row, extra.col)) continue;
           if (board.at(extra.row, extra.col) != null) continue;
@@ -266,8 +263,7 @@ class LevelGenerator {
     Board board,
     SeededRng rng,
     int nextId,
-    CampaignSpec spec,
-    int occupied, {
+    CampaignSpec spec, {
     required int minLength,
   }) {
     final empties = <GridPos>[];
@@ -281,7 +277,7 @@ class LevelGenerator {
     final heads = rng.nextInt(10) < spec.blockChance
         ? _orderHeads(board, empties)
         : empties;
-    final cap = 100;
+    final cap = empties.length < 250 ? empties.length : 250;
     final limit = heads.length < cap ? heads.length : cap;
 
     for (var i = 0; i < limit; i++) {
@@ -292,7 +288,7 @@ class LevelGenerator {
           continue;
         }
         for (var attempt = 0; attempt < 3; attempt++) {
-          final length = _pickLength(rng, spec, occupied, minLength);
+          final length = _pickLength(rng, spec, board, minLength);
           final turns = _pickTurns(rng, length, spec);
           final cells = _growBody(board, rng, head, facing, length, turns);
           if (cells.length < minLength) continue;
@@ -311,12 +307,19 @@ class LevelGenerator {
     return null;
   }
 
-  int _pickLength(SeededRng rng, CampaignSpec spec, int occupied, int minLength) {
+  int _pickLength(
+    SeededRng rng,
+    CampaignSpec spec,
+    Board board,
+    int minLength,
+  ) {
+    final occupied = _occupiedCount(board);
+    final empty = spec.rows * spec.cols - occupied;
+    final remainingArrows = spec.arrowCount - board.arrowCount;
+    var room = empty - (remainingArrows - 1);
+    if (room < 1) room = 1;
     final maxLen = spec.rows + spec.cols - 1;
-    final remaining = spec.fillCount - occupied;
-    final room = remaining < 1
-        ? 1
-        : (remaining < maxLen ? remaining : maxLen);
+    if (room > maxLen) room = maxLen;
     final roll = rng.nextInt(100);
     var length = switch (spec.tier) {
       DifficultyTier.easy => _easyLength(rng, roll),
@@ -327,6 +330,10 @@ class LevelGenerator {
     };
     if (length < minLength) length = minLength;
     if (length > room) length = room;
+    if (remainingArrows * 2 > empty && length > 2) {
+      length = 1 + rng.nextInt(2);
+      if (length > room) length = room;
+    }
     return length < 1 ? 1 : length;
   }
 

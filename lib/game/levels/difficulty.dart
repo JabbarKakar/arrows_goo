@@ -5,6 +5,23 @@ enum DifficultyTier {
   superHard,
   nightmarish;
 
+  /// Target number of arrows (pieces) for generated boards in this tier.
+  int get minArrows => switch (this) {
+        easy => 35,
+        medium => 70,
+        hard => 130,
+        superHard => 200,
+        nightmarish => 300,
+      };
+
+  int get maxArrows => switch (this) {
+        easy => 50,
+        medium => 100,
+        hard => 160,
+        superHard => 250,
+        nightmarish => 350,
+      };
+
   /// Hand-authored tutorial boards stay Easy. Generated campaign levels
   /// shuffle across all five tiers so you do not climb in locked bands.
   static DifficultyTier forLevel(int level) {
