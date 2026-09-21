@@ -50,33 +50,20 @@ class CampaignSpec {
   factory CampaignSpec.forLevel(int level) {
     final clamped = level < 1 ? 1 : level;
     final tier = DifficultyTier.forLevel(clamped);
-    final start = switch (tier) {
-      DifficultyTier.easy => 1,
-      DifficultyTier.medium => 21,
-      DifficultyTier.hard => 41,
-      DifficultyTier.superHard => 71,
-      DifficultyTier.nightmarish => 101,
-    };
-    final end = switch (tier) {
-      DifficultyTier.easy => 20,
-      DifficultyTier.medium => 40,
-      DifficultyTier.hard => 70,
-      DifficultyTier.superHard => 100,
-      DifficultyTier.nightmarish => 160,
-    };
+    final progress = ((clamped - 1) / 150).clamp(0.0, 1.0);
     final size0 = switch (tier) {
       DifficultyTier.easy => 8,
       DifficultyTier.medium => 16,
       DifficultyTier.hard => 28,
       DifficultyTier.superHard => 42,
-      DifficultyTier.nightmarish => 50,
+      DifficultyTier.nightmarish => 52,
     };
     final size1 = switch (tier) {
       DifficultyTier.easy => 14,
       DifficultyTier.medium => 24,
       DifficultyTier.hard => 38,
-      DifficultyTier.superHard => 48,
-      DifficultyTier.nightmarish => 58,
+      DifficultyTier.superHard => 50,
+      DifficultyTier.nightmarish => 60,
     };
     final occ0 = switch (tier) {
       DifficultyTier.easy => 0.42,
@@ -106,13 +93,9 @@ class CampaignSpec {
       DifficultyTier.superHard => 10,
       DifficultyTier.nightmarish => 10,
     };
-    final span = end - start;
-    final t = span <= 0
-        ? 1.0
-        : ((clamped - start) / span).clamp(0.0, 1.0);
-    final size = (size0 + (size1 - size0) * t).round();
-    final occupancy = occ0 + (occ1 - occ0) * t;
-    final blockChance = (block0 + (block1 - block0) * t).round();
+    final size = (size0 + (size1 - size0) * progress).round();
+    final occupancy = occ0 + (occ1 - occ0) * progress;
+    final blockChance = (block0 + (block1 - block0) * progress).round();
     return CampaignSpec(
       rows: size,
       cols: size,

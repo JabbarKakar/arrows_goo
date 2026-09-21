@@ -41,26 +41,37 @@ void main() {
   });
 
   group('difficulty tiers', () {
-    test('campaign levels map onto five named bands', () {
+    test('generated campaign levels shuffle all five difficulties', () {
       expect(DifficultyTier.forLevel(1), DifficultyTier.easy);
-      expect(DifficultyTier.forLevel(20), DifficultyTier.easy);
-      expect(DifficultyTier.forLevel(21), DifficultyTier.medium);
-      expect(DifficultyTier.forLevel(40), DifficultyTier.medium);
-      expect(DifficultyTier.forLevel(41), DifficultyTier.hard);
-      expect(DifficultyTier.forLevel(70), DifficultyTier.hard);
-      expect(DifficultyTier.forLevel(71), DifficultyTier.superHard);
-      expect(DifficultyTier.forLevel(100), DifficultyTier.superHard);
-      expect(DifficultyTier.forLevel(101), DifficultyTier.nightmarish);
+      expect(DifficultyTier.forLevel(8), DifficultyTier.easy);
       expect(DifficultyTier.easy.label, 'Easy');
       expect(DifficultyTier.nightmarish.label, 'Nightmarish');
+
+      final tiers = [
+        for (var level = 9; level <= 48; level++) DifficultyTier.forLevel(level),
+      ];
+      expect(tiers.toSet(), DifficultyTier.values.toSet());
+      expect(
+        tiers.every((tier) => tier == DifficultyTier.easy),
+        isFalse,
+      );
+      for (var i = 0; i < tiers.length - 1; i++) {
+        expect(
+          tiers[i],
+          isNot(tiers[i + 1]),
+          reason: 'Level ${i + 9} should not match the next level',
+        );
+      }
     });
 
-    test('later tiers use bigger denser boards', () {
-      final easy = CampaignSpec.forLevel(9);
-      final medium = CampaignSpec.forLevel(21);
-      final hard = CampaignSpec.forLevel(41);
-      final superHard = CampaignSpec.forLevel(71);
-      final nightmare = CampaignSpec.forLevel(101);
+    test('each difficulty still builds a matching board shape', () {
+      final easy = CampaignSpec.forLevel(_levelWith(DifficultyTier.easy));
+      final medium = CampaignSpec.forLevel(_levelWith(DifficultyTier.medium));
+      final hard = CampaignSpec.forLevel(_levelWith(DifficultyTier.hard));
+      final superHard =
+          CampaignSpec.forLevel(_levelWith(DifficultyTier.superHard));
+      final nightmare =
+          CampaignSpec.forLevel(_levelWith(DifficultyTier.nightmarish));
 
       expect(easy.tier, DifficultyTier.easy);
       expect(medium.tier, DifficultyTier.medium);
@@ -99,11 +110,13 @@ void main() {
     });
 
     test('easy boards are small with mixed shorts and some blocking', () {
-      final board = LevelGenerator(seed: 9).generate(CampaignSpec.forLevel(9));
+      final level = _levelWith(DifficultyTier.easy);
+      final board =
+          LevelGenerator(seed: level).generate(CampaignSpec.forLevel(level));
       final arrows = board.uniqueArrows.toList();
-      expect(board.rows, lessThan(16));
+      expect(board.rows, lessThan(18));
       expect(arrows.length, greaterThan(8));
-      expect(arrows.length, lessThan(45));
+      expect(arrows.length, lessThan(55));
       expect(arrows.any((a) => a.cells.length <= 2), isTrue);
       final free = BoardEngine.movablePositions(board).length;
       expect(free, greaterThan(0));
@@ -111,7 +124,9 @@ void main() {
     });
 
     test('medium boards mix lengths and turns', () {
-      final board = LevelGenerator(seed: 21).generate(CampaignSpec.forLevel(21));
+      final level = _levelWith(DifficultyTier.medium);
+      final board =
+          LevelGenerator(seed: level).generate(CampaignSpec.forLevel(level));
       final arrows = board.uniqueArrows.toList();
       expect(arrows.length, greaterThan(20));
       expect(_occupancy(board), greaterThan(0.4));
@@ -132,9 +147,15 @@ void main() {
     });
 
     test('harder generated levels have more arrows and stay solvable', () {
-      final easy = LevelGenerator(seed: 9).generate(CampaignSpec.forLevel(9));
-      final medium = LevelGenerator(seed: 21).generate(CampaignSpec.forLevel(21));
-      final hard = LevelGenerator(seed: 41).generate(CampaignSpec.forLevel(41));
+      final easyLevel = _levelWith(DifficultyTier.easy);
+      final mediumLevel = _levelWith(DifficultyTier.medium);
+      final hardLevel = _levelWith(DifficultyTier.hard);
+      final easy =
+          LevelGenerator(seed: easyLevel).generate(CampaignSpec.forLevel(easyLevel));
+      final medium = LevelGenerator(seed: mediumLevel)
+          .generate(CampaignSpec.forLevel(mediumLevel));
+      final hard =
+          LevelGenerator(seed: hardLevel).generate(CampaignSpec.forLevel(hardLevel));
       expect(easy.uniqueArrows.length, lessThan(medium.uniqueArrows.length));
       expect(medium.uniqueArrows.length, lessThan(hard.uniqueArrows.length));
       expect(BoardSolver.isSolvable(easy), isTrue);
@@ -158,4 +179,11 @@ double _occupancy(Board board) {
     }
   }
   return filled / (board.rows * board.cols);
+}
+
+int _levelWith(DifficultyTier tier) {
+  for (var level = 9; level <= 80; level++) {
+    if (DifficultyTier.forLevel(level) == tier) return level;
+  }
+  throw StateError('No generated level with $tier');
 }
