@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -53,6 +54,12 @@ class PlayScreen extends ConsumerWidget {
           ),
         ),
         actions: [
+          if (kDebugMode && !session.isDaily)
+            TextButton(
+              key: const Key('debug_next_level_button'),
+              onPressed: notifier.nextLevel,
+              child: const Text('Next Level'),
+            ),
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: HeartsHud(hearts: session.hearts),
@@ -91,19 +98,33 @@ class PlayScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  key: const Key('hint_button'),
-                  onPressed: session.inputLocked
-                      ? null
-                      : (session.hintsRemaining > 0
-                            ? notifier.hint
-                            : notifier.extraHint),
-                  icon: const Icon(Icons.lightbulb_outline_rounded),
-                  label: Text(
-                    session.hintsRemaining > 0
-                        ? 'Hint · ${session.hintsRemaining}'
-                        : 'Extra hint',
-                  ),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      key: const Key('hint_button'),
+                      onPressed: session.inputLocked
+                          ? null
+                          : (session.hintsRemaining > 0
+                                ? notifier.hint
+                                : notifier.extraHint),
+                      icon: const Icon(Icons.lightbulb_outline_rounded),
+                      label: Text(
+                        session.hintsRemaining > 0
+                            ? 'Hint · ${session.hintsRemaining}'
+                            : 'Extra hint',
+                      ),
+                    ),
+                    if (kDebugMode && !session.isDaily)
+                      FilledButton.tonalIcon(
+                        key: const Key('debug_next_level_body_button'),
+                        onPressed: notifier.nextLevel,
+                        icon: const Icon(Icons.skip_next_rounded),
+                        label: const Text('Next Level'),
+                      ),
+                  ],
                 ),
                 if (session.hintsRemaining <= 0) ...[
                   const SizedBox(height: 6),

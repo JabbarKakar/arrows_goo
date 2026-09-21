@@ -50,6 +50,17 @@ void main() {
     expect(find.byIcon(Icons.favorite_rounded), findsNWidgets(3));
   });
 
+  testWidgets('debug next level skips to the following campaign level', (tester) async {
+    await openPlay(tester);
+
+    expect(find.byKey(const Key('debug_next_level_button')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('debug_next_level_button')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.widgetWithText(AppBar, 'Level 2 · Easy'), findsOneWidget);
+  });
+
   testWidgets('play board zooms in and out with InteractiveViewer', (tester) async {
     await openPlay(tester);
 
