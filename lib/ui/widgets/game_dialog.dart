@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
+import 'game_button.dart';
+import 'game_card.dart';
+import 'hud_frame.dart';
 
 abstract final class GameDialog {
   static Future<bool> confirm(
@@ -19,60 +22,76 @@ abstract final class GameDialog {
       barrierColor: colors.overlay,
       builder: (context) {
         return Dialog(
-          backgroundColor: colors.card,
+          backgroundColor: Colors.transparent,
           surfaceTintColor: Colors.transparent,
+          elevation: 0,
           insetPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.xlAll),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.lg,
-              AppSpacing.lg,
-              AppSpacing.sm,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Icon(
-                  Icons.restart_alt_rounded,
-                  color: colors.warning,
-                  size: 28,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: Text(cancelLabel),
+          child: HudFrame(
+            color: colors.warning,
+            child: GameCard(
+              radius: AppRadius.xl,
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.xl,
+                AppSpacing.lg,
+                AppSpacing.lg,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: colors.warning.withValues(alpha: 0.14),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(
+                        AppSpacing.sm + AppSpacing.xs,
+                      ),
+                      child: Icon(
+                        Icons.restart_alt_rounded,
+                        color: colors.warning,
+                        size: 28,
                       ),
                     ),
-                    Expanded(
-                      child: TextButton(
-                        key: confirmKey,
-                        style: TextButton.styleFrom(
-                          foregroundColor: colors.error,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GameButton(
+                          expand: true,
+                          variant: GameButtonVariant.secondary,
+                          label: cancelLabel,
+                          onPressed: () => Navigator.pop(context, false),
                         ),
-                        onPressed: () => Navigator.pop(context, true),
-                        child: Text(confirmLabel),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: GameButton(
+                          key: confirmKey,
+                          expand: true,
+                          variant: GameButtonVariant.destructive,
+                          label: confirmLabel,
+                          onPressed: () => Navigator.pop(context, true),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );

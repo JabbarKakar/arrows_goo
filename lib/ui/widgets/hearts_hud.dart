@@ -17,7 +17,7 @@ class HeartsHud extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.card,
         borderRadius: AppRadius.pill,
-        border: Border.all(color: colors.border),
+        border: Border.all(color: colors.accent.withValues(alpha: 0.45)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(

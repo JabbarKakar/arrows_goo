@@ -2,50 +2,52 @@ import 'package:flutter/material.dart';
 
 /// Raw palette and the semantic colors screens actually read.
 abstract final class AppColors {
-  static const lightBackground = Color(0xFFF5F8FC);
-  static const lightSurface = Color(0xFFE7EEF6);
-  static const lightCard = Color(0xFFFDFEFF);
-  static const lightText = Color(0xFF121826);
-  static const lightMuted = Color(0xFF5C6B80);
-  static const lightAccent = Color(0xFF0C6F80);
-  static const lightSecondary = Color(0xFF4F46C8);
+  static const lightBackground = Color(0xFFEAF2F8);
+  static const lightSurface = Color(0xFFD5E4F0);
+  static const lightCard = Color(0xFFF8FBFE);
+  static const lightText = Color(0xFF081018);
+  static const lightMuted = Color(0xFF4E6074);
+  static const lightAccent = Color(0xFF067E92);
+  static const lightSecondary = Color(0xFF3A36B0);
   static const lightOnAccent = Color(0xFFFFFFFF);
-  static const lightSuccess = Color(0xFF0E8F62);
-  static const lightWarning = Color(0xFFB7791F);
-  static const lightError = Color(0xFFD64545);
-  static const lightDisabled = Color(0xFFB7C2CE);
-  static const lightBorder = Color(0xFFD5DEE8);
-  static const lightOverlay = Color(0xB30B1220);
-  static const lightHint = Color(0xFF1478B8);
+  static const lightSuccess = Color(0xFF0B8A5B);
+  static const lightWarning = Color(0xFFA86A12);
+  static const lightError = Color(0xFFD23B4A);
+  static const lightDisabled = Color(0xFFB4C2D0);
+  static const lightBorder = Color(0xFFC5D4E2);
+  static const lightOverlay = Color(0xB308121C);
+  static const lightHint = Color(0xFF0E78C8);
   static const lightBlocked = Color(0xFFD4533C);
 
-  static const darkBackground = Color(0xFF10192A);
-  static const darkSurface = Color(0xFF070B12);
-  static const darkCard = Color(0xFF161E2E);
-  static const darkText = Color(0xFFF4F7FB);
-  static const darkMuted = Color(0xFF93A0B4);
-  static const darkAccent = Color(0xFF2ED4F5);
-  static const darkSecondary = Color(0xFF8B7CFF);
-  static const darkOnAccent = Color(0xFF04141C);
+  static const darkBackground = Color(0xFF05070E);
+  static const darkSurface = Color(0xFF02040A);
+  static const darkCard = Color(0xFF101826);
+  static const darkText = Color(0xFFF5F9FF);
+  static const darkMuted = Color(0xFF8B9BB3);
+  static const darkAccent = Color(0xFF39F0FF);
+  static const darkSecondary = Color(0xFF7A6BFF);
+  static const darkOnAccent = Color(0xFF03141C);
   static const darkSuccess = Color(0xFF3DDCB0);
   static const darkWarning = Color(0xFFF0B429);
-  static const darkError = Color(0xFFFF6B7A);
-  static const darkDisabled = Color(0xFF4C586C);
-  static const darkBorder = Color(0xFF2A3548);
-  static const darkOverlay = Color(0xD105080F);
+  static const darkError = Color(0xFFFF5D73);
+  static const darkDisabled = Color(0xFF445066);
+  static const darkBorder = Color(0xFF2A3C58);
+  static const darkOverlay = Color(0xC004060C);
   static const darkHint = Color(0xFF5AD0FF);
   static const darkBlocked = Color(0xFFFF6B6B);
 
   static const lightGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [lightBackground, lightSurface, Color(0xFFF3F7FB)],
+    colors: [Color(0xFFF7FBFE), lightBackground, Color(0xFFD7E6F2)],
+    stops: [0.0, 0.42, 1.0],
   );
 
   static const darkGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [darkBackground, darkSurface, Color(0xFF0A1020)],
+    colors: [Color(0xFF102038), darkBackground, Color(0xFF03050B)],
+    stops: [0.0, 0.38, 1.0],
   );
 
   static const burst = [

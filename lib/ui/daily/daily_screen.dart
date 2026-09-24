@@ -12,8 +12,10 @@ import '../../game/session/play_state.dart';
 import '../widgets/game_app_bar.dart';
 import '../widgets/game_button.dart';
 import '../widgets/game_caption.dart';
+import '../widgets/game_card.dart';
 import '../widgets/game_logo.dart';
 import '../widgets/game_scaffold.dart';
+import '../widgets/hud_frame.dart';
 
 class DailyScreen extends ConsumerWidget {
   const DailyScreen({super.key});
@@ -32,49 +34,63 @@ class DailyScreen extends ConsumerWidget {
         top: false,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxHeight < 520;
-            final content = Column(
-              children: [
-                if (compact)
-                  const SizedBox(height: AppSpacing.xl)
-                else
-                  const Spacer(flex: 2),
-                const GameLogo(icon: Icons.wb_sunny_outlined, size: 76),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  DailyPuzzle.labelFor(now),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium,
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Padding(
+                    padding: AppSpacing.page,
+                    child: Column(
+                      children: [
+                        const Spacer(),
+                        const GameLogo(icon: Icons.wb_sunny_outlined, size: 72),
+                        const SizedBox(height: AppSpacing.lg),
+                        HudFrame(
+                          child: GameCard(
+                            child: Column(
+                              children: [
+                                HudLabel(
+                                  completed ? 'Cleared' : 'Today',
+                                  color: completed ? colors.success : null,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  DailyPuzzle.labelFor(now),
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineMedium,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                GameCaption(
+                                  completed
+                                      ? 'Cleared. Come back tomorrow.'
+                                      : 'One shared puzzle for every player today.',
+                                  color: completed ? colors.success : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        GameButton(
+                          key: const Key('daily_play_button'),
+                          expand: true,
+                          icon: Icons.play_arrow_rounded,
+                          label: completed ? 'Play again' : 'Play',
+                          onPressed: () {
+                            ref.read(playConfigProvider.notifier).state =
+                                PlayConfig.daily(id);
+                            Navigator.pushNamed(context, AppRoutes.play);
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                GameCaption(
-                  completed
-                      ? 'Cleared. Come back tomorrow.'
-                      : 'One shared puzzle for every player today.',
-                  color: completed ? colors.success : null,
-                ),
-                if (compact)
-                  const SizedBox(height: AppSpacing.xxl)
-                else
-                  const Spacer(flex: 3),
-                GameButton(
-                  key: const Key('daily_play_button'),
-                  expand: true,
-                  icon: Icons.play_arrow_rounded,
-                  label: completed ? 'Play again' : 'Play',
-                  onPressed: () {
-                    ref.read(playConfigProvider.notifier).state =
-                        PlayConfig.daily(id);
-                    Navigator.pushNamed(context, AppRoutes.play);
-                  },
-                ),
-                const SizedBox(height: AppSpacing.xl),
-              ],
+              ),
             );
-
-            final body = Padding(padding: AppSpacing.page, child: content);
-            if (compact) return SingleChildScrollView(child: body);
-            return body;
           },
         ),
       ),

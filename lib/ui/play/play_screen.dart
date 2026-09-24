@@ -16,6 +16,7 @@ import '../widgets/game_button.dart';
 import '../widgets/game_caption.dart';
 import '../widgets/game_card.dart';
 import '../widgets/game_scaffold.dart';
+import '../widgets/hud_frame.dart';
 import '../widgets/hearts_hud.dart';
 import '../widgets/zoomable_board.dart';
 import 'clear_burst.dart';
@@ -77,26 +78,28 @@ class PlayScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   Expanded(
-                    child: GameCard(
-                      padding: const EdgeInsets.all(AppSpacing.sm),
-                      child: ZoomableBoard(
-                        resetToken: (session.levelNumber, session.isDaily),
-                        child: Center(
-                          child: RepaintBoundary(
-                            child: GameBoard(
-                              board: session.board,
-                              sliding: session.sliding,
-                              enabled: !session.inputLocked,
-                              guidancePos: session.guidancePos,
-                              hintedPos: session.hintedPos,
-                              shakingPos: session.shakingPos,
-                              shakeNonce: session.shakeNonce,
-                              onTap: (pos) => notifier.tap(pos.row, pos.col),
-                              onSlideComplete: () {
-                                unawaited(notifier.completeSlide());
-                              },
-                              onLongPressStart: notifier.startGuidance,
-                              onLongPressEnd: notifier.clearGuidance,
+                    child: HudFrame(
+                      child: GameCard(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        child: ZoomableBoard(
+                          resetToken: (session.levelNumber, session.isDaily),
+                          child: Center(
+                            child: RepaintBoundary(
+                              child: GameBoard(
+                                board: session.board,
+                                sliding: session.sliding,
+                                enabled: !session.inputLocked,
+                                guidancePos: session.guidancePos,
+                                hintedPos: session.hintedPos,
+                                shakingPos: session.shakingPos,
+                                shakeNonce: session.shakeNonce,
+                                onTap: (pos) => notifier.tap(pos.row, pos.col),
+                                onSlideComplete: () {
+                                  unawaited(notifier.completeSlide());
+                                },
+                                onLongPressStart: notifier.startGuidance,
+                                onLongPressEnd: notifier.clearGuidance,
+                              ),
                             ),
                           ),
                         ),
@@ -104,52 +107,66 @@ class PlayScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: AppSpacing.sm,
-                    runSpacing: AppSpacing.sm,
-                    children: [
-                      GameButton(
-                        key: const Key('hint_button'),
-                        variant: GameButtonVariant.secondary,
-                        icon: Icons.lightbulb_outline_rounded,
-                        onPressed: session.inputLocked
-                            ? null
-                            : (session.hintsRemaining > 0
-                                  ? notifier.hint
-                                  : notifier.extraHint),
-                        label: session.hintsRemaining > 0
-                            ? 'Hint · ${session.hintsRemaining}'
-                            : 'Extra hint',
-                      ),
-                      if (kDebugMode && !session.isDaily)
-                        GameButton(
-                          key: const Key('debug_next_level_button'),
-                          variant: GameButtonVariant.tonal,
-                          icon: Icons.skip_next_rounded,
-                          label: 'Next Level',
-                          onPressed: notifier.nextLevel,
-                        ),
-                    ],
-                  ),
-                  if (session.hintsRemaining <= 0) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    const GameCaption('Ad placeholder — extra hint'),
-                  ],
-                  const SizedBox(height: AppSpacing.sm),
-                  if (showTutorial)
-                    TutorialCoach(
-                      onDismiss: () {
-                        unawaited(
-                          ref.read(tutorialSeenProvider.notifier).markSeen(),
-                        );
-                      },
-                    )
-                  else
-                    const GameCaption(
-                      'Tap a free arrow, or long-press for guidance.',
+                  GameCard(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.sm,
+                      AppSpacing.sm,
+                      AppSpacing.sm,
+                      AppSpacing.xs,
                     ),
-                  const SizedBox(height: AppSpacing.sm),
+                    child: Column(
+                      children: [
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          spacing: AppSpacing.sm,
+                          runSpacing: AppSpacing.sm,
+                          children: [
+                            GameButton(
+                              key: const Key('hint_button'),
+                              variant: GameButtonVariant.secondary,
+                              icon: Icons.lightbulb_outline_rounded,
+                              onPressed: session.inputLocked
+                                  ? null
+                                  : (session.hintsRemaining > 0
+                                        ? notifier.hint
+                                        : notifier.extraHint),
+                              label: session.hintsRemaining > 0
+                                  ? 'Hint · ${session.hintsRemaining}'
+                                  : 'Extra hint',
+                            ),
+                            if (kDebugMode && !session.isDaily)
+                              GameButton(
+                                key: const Key('debug_next_level_button'),
+                                variant: GameButtonVariant.tonal,
+                                icon: Icons.skip_next_rounded,
+                                label: 'Next Level',
+                                onPressed: notifier.nextLevel,
+                              ),
+                          ],
+                        ),
+                        if (session.hintsRemaining <= 0) ...[
+                          const SizedBox(height: AppSpacing.sm),
+                          const GameCaption('Ad placeholder — extra hint'),
+                        ],
+                        const SizedBox(height: AppSpacing.sm),
+                        if (showTutorial)
+                          TutorialCoach(
+                            onDismiss: () {
+                              unawaited(
+                                ref
+                                    .read(tutorialSeenProvider.notifier)
+                                    .markSeen(),
+                              );
+                            },
+                          )
+                        else
+                          const GameCaption(
+                            'Tap a free arrow, or long-press for guidance.',
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
                 ],
               ),
             ),

@@ -10,8 +10,10 @@ import '../../game/session/play_state.dart';
 import '../widgets/game_badge.dart';
 import '../widgets/game_button.dart';
 import '../widgets/game_caption.dart';
+import '../widgets/game_card.dart';
 import '../widgets/game_logo.dart';
 import '../widgets/game_scaffold.dart';
+import '../widgets/hud_frame.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -20,78 +22,105 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLevel = ref.watch(campaignProgressProvider);
     final isContinue = currentLevel > 1;
+    final titleStyle = Theme.of(context).textTheme.headlineLarge;
 
     return GameScaffold(
       maxWidth: 480,
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxHeight < 560;
-            final content = Column(
-              children: [
-                if (compact)
-                  const SizedBox(height: AppSpacing.xl)
-                else
-                  const Spacer(flex: 2),
-                const GameLogo(),
-                const SizedBox(height: AppSpacing.lg),
-                Text(
-                  'Arrows Goo',
-                  style: Theme.of(context).textTheme.headlineLarge,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                const GameCaption('Clear the grid. One arrow at a time.'),
-                if (compact)
-                  const SizedBox(height: AppSpacing.xxl)
-                else
-                  const Spacer(flex: 3),
-                GameBadge(
-                  key: const Key('home_level_label'),
-                  label: DifficultyTier.levelTitle(currentLevel),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                GameButton(
-                  key: const Key('play_button'),
-                  expand: true,
-                  icon: Icons.play_arrow_rounded,
-                  label: isContinue ? 'Continue' : 'Play',
-                  onPressed: () {
-                    ref.read(playConfigProvider.notifier).state =
-                        PlayConfig.campaign(currentLevel);
-                    Navigator.pushNamed(context, AppRoutes.play);
-                  },
-                ),
-                const SizedBox(height: AppSpacing.md),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GameButton(
-                        expand: true,
-                        variant: GameButtonVariant.secondary,
-                        label: 'Daily',
-                        onPressed: () =>
-                            Navigator.pushNamed(context, AppRoutes.daily),
-                      ),
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
+                  child: Padding(
+                    padding: AppSpacing.page,
+                    child: Column(
+                      children: [
+                        const Spacer(),
+                        const GameLogo(animate: true),
+                        const SizedBox(height: AppSpacing.md),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('Arrows Goo', style: titleStyle),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        const GameCaption(
+                          'Clear the grid. One arrow at a time.',
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        HudFrame(
+                          child: GameCard(
+                            child: Column(
+                              children: [
+                                const HudLabel('Campaign'),
+                                const SizedBox(height: AppSpacing.xs),
+                                Text(
+                                  currentLevel.toString().padLeft(2, '0'),
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.displayLarge,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                GameBadge(
+                                  key: const Key('home_level_label'),
+                                  label: DifficultyTier.levelTitle(
+                                    currentLevel,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const Spacer(),
+                        GameButton(
+                          key: const Key('play_button'),
+                          expand: true,
+                          icon: Icons.play_arrow_rounded,
+                          label: isContinue ? 'Continue' : 'Play',
+                          onPressed: () {
+                            ref.read(playConfigProvider.notifier).state =
+                                PlayConfig.campaign(currentLevel);
+                            Navigator.pushNamed(context, AppRoutes.play);
+                          },
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: GameButton(
+                                expand: true,
+                                variant: GameButtonVariant.secondary,
+                                icon: Icons.wb_sunny_outlined,
+                                label: 'Daily',
+                                onPressed: () => Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.daily,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: GameButton(
+                                expand: true,
+                                variant: GameButtonVariant.secondary,
+                                icon: Icons.tune_rounded,
+                                label: 'Settings',
+                                onPressed: () => Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.settings,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                      ],
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: GameButton(
-                        expand: true,
-                        variant: GameButtonVariant.secondary,
-                        label: 'Settings',
-                        onPressed: () =>
-                            Navigator.pushNamed(context, AppRoutes.settings),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.xl),
-              ],
+              ),
             );
-
-            final body = Padding(padding: AppSpacing.page, child: content);
-            if (compact) return SingleChildScrollView(child: body);
-            return body;
           },
         ),
       ),
