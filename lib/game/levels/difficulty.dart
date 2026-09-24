@@ -76,4 +76,7 @@ enum DifficultyTier {
         superHard => 'Super Hard',
         nightmarish => 'Nightmarish',
       };
+
+  static String levelTitle(int level) =>
+      'Level $level · ${forLevel(level).label}';
 }

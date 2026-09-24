@@ -3,6 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/storage/app_settings.dart';
 import '../../core/storage/campaign_progress.dart';
+import '../../core/theme/app_spacing.dart';
+import '../widgets/game_app_bar.dart';
+import '../widgets/game_button.dart';
+import '../widgets/game_card.dart';
+import '../widgets/game_dialog.dart';
+import '../widgets/game_scaffold.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -11,55 +17,80 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(appSettingsProvider);
     final settingsNotifier = ref.read(appSettingsProvider.notifier);
+    final label = Theme.of(context).textTheme.labelMedium;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+    return GameScaffold(
+      appBar: const GameAppBar(title: 'Settings'),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.sm,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
         children: [
-          Text('Theme', style: Theme.of(context).textTheme.bodyLarge),
-          const SizedBox(height: 8),
-          SegmentedButton<ThemeMode>(
-            segments: const [
-              ButtonSegment(value: ThemeMode.system, label: Text('System')),
-              ButtonSegment(value: ThemeMode.light, label: Text('Light')),
-              ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
-            ],
-            selected: {settings.themeMode},
-            onSelectionChanged: (selected) {
-              settingsNotifier.setThemeMode(selected.first);
-            },
+          Text('Theme', style: label),
+          const SizedBox(height: AppSpacing.sm),
+          GameCard(
+            padding: const EdgeInsets.all(AppSpacing.sm),
+            child: SegmentedButton<ThemeMode>(
+              showSelectedIcon: false,
+              expandedInsets: EdgeInsets.zero,
+              segments: const [
+                ButtonSegment(value: ThemeMode.system, label: Text('System')),
+                ButtonSegment(value: ThemeMode.light, label: Text('Light')),
+                ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
+              ],
+              selected: {settings.themeMode},
+              onSelectionChanged: (selected) {
+                settingsNotifier.setThemeMode(selected.first);
+              },
+            ),
           ),
-          const SizedBox(height: 24),
-          SwitchListTile(
-            key: const Key('sound_toggle'),
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Sound'),
-            subtitle: const Text('Whoosh, tap, and clear chime'),
-            value: settings.soundEnabled,
-            onChanged: settingsNotifier.setSoundEnabled,
+          const SizedBox(height: AppSpacing.lg),
+          GameCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                SwitchListTile(
+                  key: const Key('sound_toggle'),
+                  secondary: const Icon(Icons.volume_up_rounded),
+                  title: const Text('Sound'),
+                  subtitle: const Text('Whoosh, tap, and clear chime'),
+                  value: settings.soundEnabled,
+                  onChanged: settingsNotifier.setSoundEnabled,
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  key: const Key('haptics_toggle'),
+                  secondary: const Icon(Icons.vibration_rounded),
+                  title: const Text('Haptics'),
+                  subtitle: const Text(
+                    'Light on a free slide, medium on a blocked tap',
+                  ),
+                  value: settings.hapticsEnabled,
+                  onChanged: settingsNotifier.setHapticsEnabled,
+                ),
+                const Divider(height: 1),
+                SwitchListTile(
+                  key: const Key('celebrations_toggle'),
+                  secondary: const Icon(Icons.auto_awesome_rounded),
+                  title: const Text('Celebrations'),
+                  subtitle: const Text('Confetti when you clear a board'),
+                  value: settings.celebrationsEnabled,
+                  onChanged: settingsNotifier.setCelebrationsEnabled,
+                ),
+              ],
+            ),
           ),
-          SwitchListTile(
-            key: const Key('haptics_toggle'),
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Haptics'),
-            subtitle: const Text('Light on a free slide, medium on a blocked tap'),
-            value: settings.hapticsEnabled,
-            onChanged: settingsNotifier.setHapticsEnabled,
-          ),
-          SwitchListTile(
-            key: const Key('celebrations_toggle'),
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Celebrations'),
-            subtitle: const Text('Confetti when you clear a board'),
-            value: settings.celebrationsEnabled,
-            onChanged: settingsNotifier.setCelebrationsEnabled,
-          ),
-          const SizedBox(height: 16),
-          OutlinedButton(
+          const SizedBox(height: AppSpacing.lg),
+          GameButton(
             key: const Key('reset_progress_button'),
+            expand: true,
+            variant: GameButtonVariant.destructive,
+            icon: Icons.restart_alt_rounded,
+            label: 'Reset campaign progress',
             onPressed: () => _confirmReset(context, ref),
-            child: const Text('Reset campaign progress'),
           ),
         ],
       ),
@@ -67,27 +98,14 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _confirmReset(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Reset progress?'),
-          content: const Text('Campaign returns to Level 1. Daily completion is kept.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              key: const Key('confirm_reset_button'),
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Reset'),
-            ),
-          ],
-        );
-      },
+    final confirmed = await GameDialog.confirm(
+      context,
+      title: 'Reset progress?',
+      message: 'Campaign returns to Level 1. Daily completion is kept.',
+      confirmLabel: 'Reset',
+      confirmKey: const Key('confirm_reset_button'),
     );
-    if (confirmed == true) {
+    if (confirmed) {
       await ref.read(campaignProgressProvider.notifier).reset();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -1,53 +1,89 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_durations.dart';
+import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_spacing.dart';
+import '../widgets/game_card.dart';
+import '../widgets/game_caption.dart';
+
 class PlaySheet extends StatelessWidget {
   const PlaySheet({
     super.key,
     required this.title,
+    required this.icon,
+    required this.iconColor,
     this.subtitle,
     required this.actions,
   });
 
   final String title;
+  final IconData icon;
+  final Color iconColor;
   final String? subtitle;
   final List<Widget> actions;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final colors = GameColors.of(context);
 
     return ColoredBox(
-      color: Colors.black.withValues(alpha: 0.45),
+      color: colors.overlay,
       child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 320),
-          child: Material(
-            color: colors.surface,
-            elevation: 8,
-            borderRadius: BorderRadius.circular(24),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      fontSize: 32,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.97, end: 1),
+              duration: AppDurations.fast,
+              curve: Curves.easeOutCubic,
+              builder: (context, scale, child) {
+                return Transform.scale(scale: scale, child: child);
+              },
+              child: GameCard(
+                radius: AppRadius.xl,
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.xl,
+                  AppSpacing.lg,
+                  AppSpacing.lg,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: iconColor.withValues(alpha: 0.14),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(
+                            AppSpacing.sm + AppSpacing.xs,
+                          ),
+                          child: Icon(icon, color: iconColor, size: 28),
+                        ),
+                      ),
                     ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.md),
                     Text(
-                      subtitle!,
+                      title,
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge,
+                      style: Theme.of(context).textTheme.headlineMedium,
                     ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      GameCaption(subtitle!),
+                    ],
+                    const SizedBox(height: AppSpacing.lg),
+                    for (var i = 0; i < actions.length; i++) ...[
+                      if (i > 0) const SizedBox(height: AppSpacing.sm),
+                      actions[i],
+                    ],
                   ],
-                  const SizedBox(height: 24),
-                  ...actions,
-                ],
+                ),
               ),
             ),
           ),

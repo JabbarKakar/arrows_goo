@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../game/engine/board_engine.dart';
 import '../../game/models/board.dart';
 import '../../game/models/direction.dart';
@@ -51,12 +52,19 @@ class _GameBoardState extends State<GameBoard> with TickerProviderStateMixin {
   late final Animation<double> _slide;
   late final AnimationController _hintController;
   late final AnimationController _shakeController;
+  late final Listenable _motion;
 
   @override
   void initState() {
     super.initState();
-    _slideController = AnimationController(vsync: this, duration: _slideDuration);
-    _slide = CurvedAnimation(parent: _slideController, curve: Curves.easeInCubic);
+    _slideController = AnimationController(
+      vsync: this,
+      duration: _slideDuration,
+    );
+    _slide = CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeInCubic,
+    );
     _hintController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
@@ -68,6 +76,7 @@ class _GameBoardState extends State<GameBoard> with TickerProviderStateMixin {
     if (widget.hintedPos != null) {
       _hintController.repeat(reverse: true);
     }
+    _motion = Listenable.merge([_hintController, _shakeController]);
     if (widget.sliding != null) {
       _runSlide();
     }
@@ -92,7 +101,8 @@ class _GameBoardState extends State<GameBoard> with TickerProviderStateMixin {
         _hintController.repeat(reverse: true);
       }
     }
-    if (oldWidget.shakeNonce != widget.shakeNonce && widget.shakingPos != null) {
+    if (oldWidget.shakeNonce != widget.shakeNonce &&
+        widget.shakingPos != null) {
       _shakeController.forward(from: 0);
     }
   }
@@ -123,7 +133,8 @@ class _GameBoardState extends State<GameBoard> with TickerProviderStateMixin {
             widget.guidancePos!.row,
             widget.guidancePos!.col,
           );
-    final guidanceClear = widget.guidancePos != null &&
+    final guidanceClear =
+        widget.guidancePos != null &&
         BoardEngine.isMovablePos(widget.board, widget.guidancePos!);
 
     return AspectRatio(
@@ -134,109 +145,131 @@ class _GameBoardState extends State<GameBoard> with TickerProviderStateMixin {
           final cellSize =
               (constraints.maxWidth - _padding * 2 - _spacing * (n - 1)) / n;
           final mazeColor = Theme.of(context).colorScheme.onSurface;
+          final colors = GameColors.of(context);
+          final gridColor = colors.border.withValues(alpha: 0.55);
 
-          return AnimatedBuilder(
-            animation: Listenable.merge([_hintController, _shakeController]),
-            builder: (context, _) {
-              final shakeT = _shakeController.value;
-              final shakeDx = math.sin(shakeT * math.pi * 6) * 7 * (1 - shakeT);
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: _MazeArrowsPainter(
-                        board: widget.board,
-                        cellSize: cellSize,
-                        mazeColor: mazeColor,
-                        hideId: widget.sliding?.arrow.id,
-                        hintedPos: widget.hintedPos,
-                        hintPulse: _hintController.value,
-                        shakingPos: widget.shakingPos,
-                        shakeDx: shakeDx,
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: widget.board.rows * widget.board.cols <= 32
-                        ? Padding(
-                            padding: const EdgeInsets.all(_padding),
-                            child: Column(
-                              children: [
-                                for (var r = 0; r < widget.board.rows; r++) ...[
-                                  if (r > 0) const SizedBox(height: _spacing),
-                                  Expanded(
-                                    child: Row(
-                                      children: [
-                                        for (var c = 0; c < widget.board.cols; c++) ...[
-                                          if (c > 0) const SizedBox(width: _spacing),
-                                          Expanded(
-                                            child: _HitCell(
-                                              key: Key('cell_${r}_$c'),
-                                              board: widget.board,
-                                              row: r,
-                                              col: c,
-                                              enabled: widget.enabled,
-                                              hinted: widget.hintedPos == GridPos(r, c),
-                                              onTap: widget.onTap,
-                                              onLongPressStart: widget.onLongPressStart,
-                                              onLongPressEnd: widget.onLongPressEnd,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                          )
-                        : GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTapDown: widget.enabled
-                                ? (details) {
-                                    final pos = _cellAt(details.localPosition, cellSize);
-                                    if (pos != null) widget.onTap(pos);
-                                  }
-                                : null,
-                            onLongPressStart: widget.enabled &&
-                                    widget.onLongPressStart != null
-                                ? (details) {
-                                    final pos = _cellAt(details.localPosition, cellSize);
-                                    if (pos != null) widget.onLongPressStart!(pos);
-                                  }
-                                : null,
-                            onLongPressEnd: widget.enabled &&
-                                    widget.onLongPressEnd != null
-                                ? (_) => widget.onLongPressEnd!()
-                                : null,
-                            onLongPressCancel: widget.enabled
-                                ? widget.onLongPressEnd
-                                : null,
-                          ),
-                  ),
-                  if (guidancePath.isNotEmpty)
-                    IgnorePointer(
-                      child: CustomPaint(
-                        size: Size(constraints.maxWidth, constraints.maxHeight),
-                        painter: _GuidancePainter(
-                          path: guidancePath,
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: RepaintBoundary(
+                  child: AnimatedBuilder(
+                    animation: _motion,
+                    builder: (context, _) {
+                      final shakeT = _shakeController.value;
+                      final shakeDx =
+                          math.sin(shakeT * math.pi * 6) * 7 * (1 - shakeT);
+                      return CustomPaint(
+                        painter: _MazeArrowsPainter(
+                          board: widget.board,
                           cellSize: cellSize,
-                          clear: guidanceClear,
+                          mazeColor: mazeColor,
+                          gridColor: gridColor,
+                          hintColor: colors.hint,
+                          hideId: widget.sliding?.arrow.id,
+                          hintedPos: widget.hintedPos,
+                          hintPulse: _hintController.value,
+                          shakingPos: widget.shakingPos,
+                          shakeDx: shakeDx,
                         ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: widget.board.rows * widget.board.cols <= 32
+                    ? Padding(
+                        padding: const EdgeInsets.all(_padding),
+                        child: Column(
+                          children: [
+                            for (var r = 0; r < widget.board.rows; r++) ...[
+                              if (r > 0) const SizedBox(height: _spacing),
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    for (
+                                      var c = 0;
+                                      c < widget.board.cols;
+                                      c++
+                                    ) ...[
+                                      if (c > 0)
+                                        const SizedBox(width: _spacing),
+                                      Expanded(
+                                        child: _HitCell(
+                                          key: Key('cell_${r}_$c'),
+                                          board: widget.board,
+                                          row: r,
+                                          col: c,
+                                          enabled: widget.enabled,
+                                          hinted:
+                                              widget.hintedPos == GridPos(r, c),
+                                          onTap: widget.onTap,
+                                          onLongPressStart:
+                                              widget.onLongPressStart,
+                                          onLongPressEnd: widget.onLongPressEnd,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      )
+                    : GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapDown: widget.enabled
+                            ? (details) {
+                                final pos = _cellAt(
+                                  details.localPosition,
+                                  cellSize,
+                                );
+                                if (pos != null) widget.onTap(pos);
+                              }
+                            : null,
+                        onLongPressStart:
+                            widget.enabled && widget.onLongPressStart != null
+                            ? (details) {
+                                final pos = _cellAt(
+                                  details.localPosition,
+                                  cellSize,
+                                );
+                                if (pos != null) widget.onLongPressStart!(pos);
+                              }
+                            : null,
+                        onLongPressEnd:
+                            widget.enabled && widget.onLongPressEnd != null
+                            ? (_) => widget.onLongPressEnd!()
+                            : null,
+                        onLongPressCancel: widget.enabled
+                            ? widget.onLongPressEnd
+                            : null,
                       ),
-                    ),
-                  if (widget.sliding != null)
-                    _SlidingArrowLayer(
-                      sliding: widget.sliding!,
+              ),
+              if (guidancePath.isNotEmpty)
+                IgnorePointer(
+                  child: CustomPaint(
+                    size: Size(constraints.maxWidth, constraints.maxHeight),
+                    painter: _GuidancePainter(
+                      path: guidancePath,
                       cellSize: cellSize,
-                      animation: _slide,
-                      boardSize: constraints.maxWidth,
-                      mazeColor: mazeColor,
+                      clear: guidanceClear,
+                      hintColor: colors.hint,
+                      blockedColor: colors.blocked,
                     ),
-                ],
-              );
-            },
+                  ),
+                ),
+              if (widget.sliding != null)
+                _SlidingArrowLayer(
+                  sliding: widget.sliding!,
+                  cellSize: cellSize,
+                  animation: _slide,
+                  boardSize: constraints.maxWidth,
+                  mazeColor: mazeColor,
+                ),
+            ],
           );
         },
       ),
@@ -305,6 +338,8 @@ class _MazeArrowsPainter extends CustomPainter {
     required this.board,
     required this.cellSize,
     required this.mazeColor,
+    required this.gridColor,
+    required this.hintColor,
     required this.hintPulse,
     required this.shakeDx,
     this.hideId,
@@ -315,6 +350,8 @@ class _MazeArrowsPainter extends CustomPainter {
   final Board board;
   final double cellSize;
   final Color mazeColor;
+  final Color gridColor;
+  final Color hintColor;
   final int? hideId;
   final GridPos? hintedPos;
   final double hintPulse;
@@ -323,6 +360,7 @@ class _MazeArrowsPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    _paintGrid(canvas, size);
     final stroke = MazeLine.strokeFor(cellSize);
     final hintedId = widgetHintId;
     final shakingId = widgetShakeId;
@@ -348,7 +386,7 @@ class _MazeArrowsPainter extends CustomPainter {
           canvas,
           points: points,
           direction: arrow.direction,
-          color: MazeLine.hintBlue.withValues(alpha: 0.35 + hintPulse * 0.45),
+          color: hintColor.withValues(alpha: 0.35 + hintPulse * 0.45),
           stroke: 1.8 + hintPulse * 0.8,
           cellSize: cellSize,
           head: false,
@@ -358,7 +396,7 @@ class _MazeArrowsPainter extends CustomPainter {
         canvas,
         points: points,
         direction: arrow.direction,
-        color: hinted ? MazeLine.hintBlue : mazeColor,
+        color: hinted ? hintColor : mazeColor,
         stroke: stroke,
         cellSize: cellSize,
       );
@@ -372,11 +410,39 @@ class _MazeArrowsPainter extends CustomPainter {
   int? get widgetShakeId =>
       shakingPos == null ? null : board.atPos(shakingPos!)?.id;
 
+  void _paintGrid(Canvas canvas, Size size) {
+    // Dense boards are already a line field; a grid would just muddy them.
+    if (cellSize < 14) return;
+    final path = Path();
+    final inset = 6.0;
+    for (var i = 1; i < board.cols; i++) {
+      final x = _GameBoardState._padding + i * cellSize;
+      path
+        ..moveTo(x, inset)
+        ..lineTo(x, size.height - inset);
+    }
+    for (var i = 1; i < board.rows; i++) {
+      final y = _GameBoardState._padding + i * cellSize;
+      path
+        ..moveTo(inset, y)
+        ..lineTo(size.width - inset, y);
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = gridColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+  }
+
   @override
   bool shouldRepaint(covariant _MazeArrowsPainter oldDelegate) {
     return oldDelegate.board != board ||
         oldDelegate.cellSize != cellSize ||
         oldDelegate.mazeColor != mazeColor ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.hintColor != hintColor ||
         oldDelegate.hideId != hideId ||
         oldDelegate.hintedPos != hintedPos ||
         oldDelegate.hintPulse != hintPulse ||
@@ -390,11 +456,15 @@ class _GuidancePainter extends CustomPainter {
     required this.path,
     required this.cellSize,
     required this.clear,
+    required this.hintColor,
+    required this.blockedColor,
   });
 
   final List<GridPos> path;
   final double cellSize;
   final bool clear;
+  final Color hintColor;
+  final Color blockedColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -409,7 +479,7 @@ class _GuidancePainter extends CustomPainter {
           spacing: _GameBoardState._spacing,
         ),
     ];
-    final color = clear ? MazeLine.hintBlue : const Color(0xFFE76F51);
+    final color = clear ? hintColor : blockedColor;
     MazeLine.paintPath(
       canvas,
       points: points,
@@ -436,6 +506,8 @@ class _GuidancePainter extends CustomPainter {
   bool shouldRepaint(covariant _GuidancePainter oldDelegate) {
     return oldDelegate.clear != clear ||
         oldDelegate.cellSize != cellSize ||
+        oldDelegate.hintColor != hintColor ||
+        oldDelegate.blockedColor != blockedColor ||
         oldDelegate.path != path;
   }
 }

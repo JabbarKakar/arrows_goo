@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_spacing.dart';
+
 class ZoomableBoard extends StatefulWidget {
-  const ZoomableBoard({
-    super.key,
-    required this.child,
-    this.resetToken,
-  });
+  const ZoomableBoard({super.key, required this.child, this.resetToken});
 
   final Widget child;
   final Object? resetToken;
@@ -55,7 +55,7 @@ class _ZoomableBoardState extends State<ZoomableBoard> {
   @override
   Widget build(BuildContext context) {
     final scale = _controller.value.getMaxScaleOnAxis();
-    final scheme = Theme.of(context).colorScheme;
+    final colors = GameColors.of(context);
 
     return ClipRect(
       child: Stack(
@@ -72,18 +72,21 @@ class _ZoomableBoardState extends State<ZoomableBoard> {
             ),
           ),
           Positioned(
-            right: 4,
-            bottom: 8,
-            child: Material(
-              elevation: 2,
-              color: scheme.surface.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(24),
+            right: AppSpacing.xs,
+            bottom: AppSpacing.sm,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.card.withValues(alpha: 0.94),
+                borderRadius: AppRadius.pill,
+                border: Border.all(color: colors.border),
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
                     key: const Key('zoom_in_button'),
                     tooltip: 'Zoom in',
+                    visualDensity: VisualDensity.compact,
                     onPressed: scale >= _maxScale - 0.01
                         ? null
                         : () => _zoom(_zoomStep),
@@ -92,6 +95,7 @@ class _ZoomableBoardState extends State<ZoomableBoard> {
                   IconButton(
                     key: const Key('zoom_out_button'),
                     tooltip: 'Zoom out',
+                    visualDensity: VisualDensity.compact,
                     onPressed: scale <= _minScale + 0.01
                         ? null
                         : () => _zoom(1 / _zoomStep),

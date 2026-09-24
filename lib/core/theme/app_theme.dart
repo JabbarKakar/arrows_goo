@@ -1,80 +1,146 @@
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
+import 'app_radius.dart';
+import 'app_typography.dart';
 
 abstract final class AppTheme {
-  static ThemeData get light {
-    const scheme = ColorScheme.light(
-      primary: AppColors.lightPrimary,
-      onPrimary: AppColors.lightOnPrimary,
-      surface: AppColors.lightSurface,
-      onSurface: AppColors.lightText,
-      outline: AppColors.lightOutline,
-    );
+  static ThemeData get light => _theme(GameColors.light);
 
-    return _theme(
-      scheme: scheme,
-      scaffoldBackground: AppColors.lightBackground,
-      muted: AppColors.lightMuted,
-    );
-  }
+  static ThemeData get dark => _theme(GameColors.dark);
 
-  static ThemeData get dark {
-    const scheme = ColorScheme.dark(
-      primary: AppColors.darkPrimary,
-      onPrimary: AppColors.darkOnPrimary,
-      surface: AppColors.darkSurface,
-      onSurface: AppColors.darkText,
-      outline: AppColors.darkOutline,
+  static ThemeData _theme(GameColors colors) {
+    final scheme = ColorScheme(
+      brightness: colors.background == AppColors.darkBackground
+          ? Brightness.dark
+          : Brightness.light,
+      primary: colors.accent,
+      onPrimary: colors.onAccent,
+      secondary: colors.secondary,
+      onSecondary: colors.onAccent,
+      error: colors.error,
+      onError: colors.onAccent,
+      surface: colors.card,
+      onSurface: colors.textPrimary,
+      outline: colors.border,
+      surfaceTint: Colors.transparent,
     );
+    final text = AppTypography.textTheme(colors);
+    final radius = const RoundedRectangleBorder(borderRadius: AppRadius.lgAll);
 
-    return _theme(
-      scheme: scheme,
-      scaffoldBackground: AppColors.darkBackground,
-      muted: AppColors.darkMuted,
-    );
-  }
-
-  static ThemeData _theme({
-    required ColorScheme scheme,
-    required Color scaffoldBackground,
-    required Color muted,
-  }) {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: scaffoldBackground,
+      scaffoldBackgroundColor: colors.background,
+      canvasColor: colors.background,
+      splashFactory: InkRipple.splashFactory,
+      textTheme: text,
+      extensions: [colors],
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.macOS: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: FadeUpwardsPageTransitionsBuilder(),
+        },
+      ),
       appBarTheme: AppBarTheme(
-        backgroundColor: scaffoldBackground,
-        foregroundColor: scheme.onSurface,
+        backgroundColor: colors.background,
+        foregroundColor: colors.textPrimary,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        centerTitle: true,
         scrolledUnderElevation: 0,
+        centerTitle: true,
+        titleTextStyle: text.titleLarge,
+        iconTheme: IconThemeData(color: colors.textPrimary),
+      ),
+      dividerTheme: DividerThemeData(
+        color: colors.border,
+        space: 1,
+        thickness: 1,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: colors.card,
+        contentTextStyle: text.bodyMedium?.copyWith(color: colors.textPrimary),
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: colors.card,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.xlAll),
+        titleTextStyle: text.headlineMedium,
+        contentTextStyle: text.bodyLarge,
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: colors.accent,
+          textStyle: text.labelLarge,
+        ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size.fromHeight(56),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          backgroundColor: colors.accent,
+          foregroundColor: colors.onAccent,
+          disabledBackgroundColor: colors.disabled,
+          elevation: 0,
+          shape: radius,
+          textStyle: text.labelLarge,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(0, 52),
-          foregroundColor: scheme.onSurface,
-          side: BorderSide(color: scheme.outline),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          foregroundColor: colors.textPrimary,
+          disabledForegroundColor: colors.disabled,
+          side: BorderSide(color: colors.border),
+          shape: radius,
+          textStyle: text.labelLarge,
         ),
       ),
-      textTheme: TextTheme(
-        headlineLarge: TextStyle(
-          fontSize: 40,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.8,
-          color: scheme.onSurface,
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: colors.textPrimary,
+          disabledForegroundColor: colors.disabled,
         ),
-        bodyLarge: TextStyle(fontSize: 16, height: 1.4, color: muted),
       ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          textStyle: WidgetStatePropertyAll(text.labelMedium),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return colors.onAccent;
+            return colors.textPrimary;
+          }),
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return colors.accent;
+            return Colors.transparent;
+          }),
+          side: WidgetStatePropertyAll(BorderSide(color: colors.border)),
+          shape: const WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: AppRadius.mdAll),
+          ),
+        ),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return colors.onAccent;
+          return colors.textSecondary;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return colors.accent;
+          return colors.border;
+        }),
+        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+      ),
+      listTileTheme: ListTileThemeData(
+        iconColor: colors.accent,
+        titleTextStyle: text.titleMedium,
+        subtitleTextStyle: text.bodyMedium,
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(color: colors.accent),
     );
   }
 }

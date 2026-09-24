@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/routing/app_routes.dart';
+import 'core/theme/app_durations.dart';
 import 'core/theme/app_theme.dart';
 import 'core/storage/app_settings.dart';
 import 'ui/daily/daily_screen.dart';
@@ -22,6 +23,8 @@ class ArrowsGooApp extends ConsumerWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
+      themeAnimationDuration: AppDurations.normal,
+      themeAnimationCurve: Curves.easeOutCubic,
       initialRoute: AppRoutes.home,
       routes: {
         AppRoutes.home: (_) => const HomeScreen(),
