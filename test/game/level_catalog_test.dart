@@ -124,6 +124,8 @@ void main() {
       expect(spec.arrowCount, inInclusiveRange(200, 250));
       final board = LevelGenerator(seed: level).generate(spec);
       expect(board.arrowCount, inInclusiveRange(200, 250));
+      expect(_occupancy(board), greaterThan(0.58));
+      expect(board.rows, lessThan(40));
     });
 
     test('same seed produces the same board', () {
@@ -153,7 +155,7 @@ void main() {
           LevelGenerator(seed: level).generate(CampaignSpec.forLevel(level));
       final arrows = board.uniqueArrows.toList();
       expect(arrows.length, inInclusiveRange(70, 100));
-      expect(_occupancy(board), greaterThan(0.4));
+      expect(_occupancy(board), greaterThan(0.55));
       expect(arrows.where((a) => a.cells.length <= 2).length, greaterThan(4));
       expect(arrows.any((a) => a.cells.length >= 5), isTrue);
       expect(arrows.any((a) => a.turnCount >= 1), isTrue);

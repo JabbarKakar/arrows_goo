@@ -57,19 +57,13 @@ class CampaignSpec {
         ? tier.minArrows
         : tier.minArrows + SeededRng(clamped * 9176 + 13).nextInt(span + 1);
     final avgLen = switch (tier) {
-      DifficultyTier.easy => 2.4,
-      DifficultyTier.medium => 2.8,
-      DifficultyTier.hard => 3.0,
-      DifficultyTier.superHard => 2.6,
-      DifficultyTier.nightmarish => 2.3,
+      DifficultyTier.easy => 3.2,
+      DifficultyTier.medium => 3.6,
+      DifficultyTier.hard => 4.0,
+      DifficultyTier.superHard => 4.4,
+      DifficultyTier.nightmarish => 4.6,
     };
-    final occupancy = switch (tier) {
-      DifficultyTier.easy => 0.38,
-      DifficultyTier.medium => 0.40,
-      DifficultyTier.hard => 0.42,
-      DifficultyTier.superHard => 0.44,
-      DifficultyTier.nightmarish => 0.46,
-    };
+    final occupancy = LevelGenerator.densityTarget(tier);
     var size = math.sqrt(arrowCount * avgLen / occupancy).ceil();
     if (size * size < arrowCount) {
       size = math.sqrt(arrowCount.toDouble()).ceil();
@@ -96,13 +90,21 @@ class LevelGenerator {
 
   final int seed;
 
+  static double densityTarget(DifficultyTier tier) => switch (tier) {
+        DifficultyTier.easy => 0.55,
+        DifficultyTier.medium => 0.66,
+        DifficultyTier.hard => 0.76,
+        DifficultyTier.superHard => 0.84,
+        DifficultyTier.nightmarish => 0.90,
+      };
+
   Board generate(CampaignSpec spec) {
     var rows = spec.rows;
     var cols = spec.cols;
     var board = _generateOnce(spec);
     var extra = 0;
     while (board.arrowCount < spec.arrowCount && extra < 8) {
-      extra += 4;
+      extra += 1;
       board = _generateOnce(
         CampaignSpec(
           rows: rows + extra,
@@ -274,9 +276,13 @@ class LevelGenerator {
     }
     if (empties.isEmpty) return null;
     rng.shuffle(empties);
-    final heads = rng.nextInt(10) < spec.blockChance
-        ? _orderHeads(board, empties)
-        : empties;
+    final fromCenter = spec.tier.index >= DifficultyTier.hard.index &&
+        board.arrowCount * 3 < spec.arrowCount;
+    final heads = fromCenter
+        ? _orderFromCenter(board, empties)
+        : (rng.nextInt(10) < spec.blockChance
+              ? _orderHeads(board, empties)
+              : empties);
     final cap = empties.length < 250 ? empties.length : 250;
     final limit = heads.length < cap ? heads.length : cap;
 
@@ -514,6 +520,18 @@ class LevelGenerator {
       count++;
     }
     return count;
+  }
+
+  static List<GridPos> _orderFromCenter(Board board, List<GridPos> empties) {
+    final midR = (board.rows - 1) / 2;
+    final midC = (board.cols - 1) / 2;
+    final scored = [...empties];
+    scored.sort((a, b) {
+      final da = (a.row - midR) * (a.row - midR) + (a.col - midC) * (a.col - midC);
+      final db = (b.row - midR) * (b.row - midR) + (b.col - midC) * (b.col - midC);
+      return da.compareTo(db);
+    });
+    return scored;
   }
 
   static int _occupiedCount(Board board) {
