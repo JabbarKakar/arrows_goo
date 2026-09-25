@@ -62,6 +62,8 @@ abstract final class BoardEngine {
     var r = head.row + direction.dRow;
     var c = head.col + direction.dCol;
     while (board.inBounds(r, c)) {
+      if (board.isWall(r, c)) return false;
+      if (!board.isPlayable(r, c)) return true;
       final here = GridPos(r, c);
       if (!self.contains(here) && board.at(r, c) != null) return false;
       r += direction.dRow;
@@ -79,6 +81,7 @@ abstract final class BoardEngine {
     var r = arrow.head.row + arrow.direction.dRow;
     var c = arrow.head.col + arrow.direction.dCol;
     while (board.inBounds(r, c)) {
+      if (board.isWall(r, c) || !board.isPlayable(r, c)) break;
       path.add(GridPos(r, c));
       r += arrow.direction.dRow;
       c += arrow.direction.dCol;

@@ -69,6 +69,15 @@ enum DifficultyTier {
     );
   }
 
+  /// Countdown for a campaign level. Shorter clocks are part of the harder tiers.
+  int get timeLimitSeconds => switch (this) {
+        easy => 4 * 60,
+        medium => 3 * 60,
+        hard => 2 * 60 + 30,
+        superHard => 2 * 60,
+        nightmarish => 90,
+      };
+
   String get label => switch (this) {
         easy => 'Easy',
         medium => 'Medium',

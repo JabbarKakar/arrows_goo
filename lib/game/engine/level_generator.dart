@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import '../levels/difficulty.dart';
+import '../levels/level_shape.dart';
 import '../models/arrow.dart';
 import '../models/board.dart';
 import '../models/direction.dart';
@@ -37,6 +38,9 @@ class CampaignSpec {
     required this.arrowCount,
     this.tier = DifficultyTier.medium,
     this.blockChance = 7,
+    this.shape = LevelShape.block,
+    this.palette = LevelPalette.single,
+    this.paletteIndex = 0,
   });
 
   final int rows;
@@ -48,6 +52,9 @@ class CampaignSpec {
 
   /// Out of 10 placements, how often a new head sits on an earlier exit lane.
   final int blockChance;
+  final LevelShape shape;
+  final LevelPalette palette;
+  final int paletteIndex;
 
   factory CampaignSpec.forLevel(int level) {
     final clamped = level < 1 ? 1 : level;
@@ -63,7 +70,9 @@ class CampaignSpec {
       DifficultyTier.superHard => 4.4,
       DifficultyTier.nightmarish => 4.6,
     };
-    final occupancy = LevelGenerator.densityTarget(tier);
+    final shape = LevelShape.forLevel(clamped);
+    final palette = LevelPalette.forLevel(clamped);
+    final occupancy = LevelGenerator.densityTarget(tier) * shape.fill;
     var size = math.sqrt(arrowCount * avgLen / occupancy).ceil();
     if (size * size < arrowCount) {
       size = math.sqrt(arrowCount.toDouble()).ceil();
@@ -81,6 +90,9 @@ class CampaignSpec {
       arrowCount: arrowCount,
       tier: tier,
       blockChance: blockChance,
+      shape: shape,
+      palette: palette,
+      paletteIndex: clamped % 8,
     );
   }
 }
@@ -103,7 +115,7 @@ class LevelGenerator {
     var cols = spec.cols;
     var board = _generateOnce(spec);
     var extra = 0;
-    while (board.arrowCount < spec.arrowCount && extra < 8) {
+    while (board.arrowCount < spec.arrowCount && extra < 12) {
       extra += 1;
       board = _generateOnce(
         CampaignSpec(
@@ -112,6 +124,9 @@ class LevelGenerator {
           arrowCount: spec.arrowCount,
           tier: spec.tier,
           blockChance: spec.blockChance,
+          shape: spec.shape,
+          palette: spec.palette,
+          paletteIndex: spec.paletteIndex,
         ),
       );
     }
@@ -120,7 +135,15 @@ class LevelGenerator {
 
   Board _generateOnce(CampaignSpec spec) {
     final rng = SeededRng(seed);
-    var board = Board.empty(spec.rows, spec.cols);
+    var board = spec.shape == LevelShape.block
+        ? Board.empty(spec.rows, spec.cols)
+        : Board.masked(
+            spec.rows,
+            spec.cols,
+            (row, col) => spec.shape.contains(row, col, spec.rows, spec.cols),
+            wall: (row, col) =>
+                spec.shape.separates(row, col, spec.rows, spec.cols),
+          );
     var nextId = 0;
     board = _fill(
       board,
@@ -176,7 +199,9 @@ class LevelGenerator {
       final empties = <GridPos>[];
       for (var r = 0; r < spec.rows; r++) {
         for (var c = 0; c < spec.cols; c++) {
-          if (board.at(r, c) == null) empties.add(GridPos(r, c));
+          if (board.isPlayable(r, c) && board.at(r, c) == null) {
+            empties.add(GridPos(r, c));
+          }
         }
       }
       rng.shuffle(empties);
@@ -189,8 +214,8 @@ class LevelGenerator {
         rng.shuffle(dirs);
         for (final facing in dirs) {
           if (!allowRimOutward &&
-              _isRim(head, spec) &&
-              _facesOffBoard(head, facing, spec)) {
+              _isRim(head, board) &&
+              _facesOffBoard(head, facing, board)) {
             continue;
           }
           final cells = [head];
@@ -199,7 +224,13 @@ class LevelGenerator {
             Arrow(
               id: id,
               direction: facing,
-              colorIndex: id,
+              colorIndex: spec.palette.colorFor(
+                id: id,
+                head: head,
+                rows: spec.rows,
+                cols: spec.cols,
+                base: spec.paletteIndex,
+              ),
               cells: cells,
             ),
           );
@@ -237,7 +268,7 @@ class LevelGenerator {
                   GridPos(arrow.tail.row + dir.dRow, arrow.tail.col + dir.dCol),
               ];
         for (final extra in extras) {
-          if (!board.inBounds(extra.row, extra.col)) continue;
+          if (!board.isPlayable(extra.row, extra.col)) continue;
           if (board.at(extra.row, extra.col) != null) continue;
           if (arrow.occupies(extra)) continue;
           final cells = [extra, ...arrow.cells];
@@ -271,7 +302,9 @@ class LevelGenerator {
     final empties = <GridPos>[];
     for (var r = 0; r < spec.rows; r++) {
       for (var c = 0; c < spec.cols; c++) {
-        if (board.at(r, c) == null) empties.add(GridPos(r, c));
+        if (board.isPlayable(r, c) && board.at(r, c) == null) {
+          empties.add(GridPos(r, c));
+        }
       }
     }
     if (empties.isEmpty) return null;
@@ -288,7 +321,7 @@ class LevelGenerator {
 
     for (var i = 0; i < limit; i++) {
       final head = heads[i];
-      final dirs = _orderFacings(head, spec, rng);
+      final dirs = _orderFacings(head, spec, rng, board);
       for (final facing in dirs) {
         if (!BoardEngine.wouldBeMovable(board, head.row, head.col, facing)) {
           continue;
@@ -302,7 +335,13 @@ class LevelGenerator {
           final piece = Arrow(
             id: nextId,
             direction: facing,
-            colorIndex: nextId,
+            colorIndex: spec.palette.colorFor(
+              id: nextId,
+              head: head,
+              rows: spec.rows,
+              cols: spec.cols,
+              base: spec.paletteIndex,
+            ),
             cells: cells,
           );
           if (piece.bendsTowardSelf) continue;
@@ -464,7 +503,7 @@ class LevelGenerator {
       var best = 99;
       for (final dir in options) {
         final candidate = GridPos(pos.row + dir.dRow, pos.col + dir.dCol);
-        if (!board.inBounds(candidate.row, candidate.col)) continue;
+        if (!board.isPlayable(candidate.row, candidate.col)) continue;
         if (board.at(candidate.row, candidate.col) != null) continue;
         if (body.contains(candidate)) continue;
         if (_touchesBodyExcept(body, pos, candidate)) continue;
@@ -514,7 +553,7 @@ class LevelGenerator {
     var count = 0;
     for (final dir in Direction.values) {
       final next = GridPos(pos.row + dir.dRow, pos.col + dir.dCol);
-      if (!board.inBounds(next.row, next.col)) continue;
+      if (!board.isPlayable(next.row, next.col)) continue;
       if (board.at(next.row, next.col) != null) continue;
       if (body.contains(next) || next == pos) continue;
       count++;
@@ -552,31 +591,32 @@ class LevelGenerator {
     return max;
   }
 
-  static bool _isRim(GridPos pos, CampaignSpec spec) =>
-      pos.row == 0 ||
-      pos.col == 0 ||
-      pos.row == spec.rows - 1 ||
-      pos.col == spec.cols - 1;
+  static bool _isRim(GridPos pos, Board board) {
+    for (final dir in Direction.values) {
+      if (!board.isPlayable(pos.row + dir.dRow, pos.col + dir.dCol)) {
+        return true;
+      }
+    }
+    return false;
+  }
 
-  static bool _facesOffBoard(GridPos pos, Direction facing, CampaignSpec spec) {
+  static bool _facesOffBoard(GridPos pos, Direction facing, Board board) {
     final next = GridPos(pos.row + facing.dRow, pos.col + facing.dCol);
-    return next.row < 0 ||
-        next.col < 0 ||
-        next.row >= spec.rows ||
-        next.col >= spec.cols;
+    return !board.isPlayable(next.row, next.col);
   }
 
   static List<Direction> _orderFacings(
     GridPos head,
     CampaignSpec spec,
     SeededRng rng,
+    Board board,
   ) {
     final dirs = [...Direction.values];
     rng.shuffle(dirs);
     final out = <Direction>[];
     final rest = <Direction>[];
     for (final dir in dirs) {
-      if (_facesOffBoard(head, dir, spec)) {
+      if (_facesOffBoard(head, dir, board)) {
         out.add(dir);
       } else {
         rest.add(dir);
@@ -609,7 +649,7 @@ class LevelGenerator {
     for (final arrow in board.uniqueArrows) {
       var r = arrow.head.row + arrow.direction.dRow;
       var c = arrow.head.col + arrow.direction.dCol;
-      while (board.inBounds(r, c)) {
+      while (board.isPlayable(r, c)) {
         if (board.at(r, c) == null) spots.add(GridPos(r, c));
         r += arrow.direction.dRow;
         c += arrow.direction.dCol;

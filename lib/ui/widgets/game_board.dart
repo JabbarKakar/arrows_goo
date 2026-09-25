@@ -8,6 +8,7 @@ import '../../game/models/board.dart';
 import '../../game/models/direction.dart';
 import '../../game/models/grid_pos.dart';
 import '../../game/session/play_state.dart';
+import 'arrow_palette.dart';
 import 'arrow_tile.dart';
 import 'maze_train.dart';
 
@@ -264,10 +265,11 @@ class _GameBoardState extends State<GameBoard> with TickerProviderStateMixin {
               if (widget.sliding != null)
                 _SlidingArrowLayer(
                   sliding: widget.sliding!,
+                  board: widget.board,
                   cellSize: cellSize,
                   animation: _slide,
                   boardSize: constraints.maxWidth,
-                  mazeColor: mazeColor,
+                  mazeColor: ArrowPalette.of(widget.sliding!.arrow.colorIndex),
                 ),
             ],
           );
@@ -361,6 +363,7 @@ class _MazeArrowsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     _paintGrid(canvas, size);
+    _paintSectionFrames(canvas);
     final stroke = MazeLine.strokeFor(cellSize);
     final hintedId = widgetHintId;
     final shakingId = widgetShakeId;
@@ -396,7 +399,7 @@ class _MazeArrowsPainter extends CustomPainter {
         canvas,
         points: points,
         direction: arrow.direction,
-        color: hinted ? hintColor : mazeColor,
+        color: hinted ? hintColor : ArrowPalette.of(arrow.colorIndex),
         stroke: stroke,
         cellSize: cellSize,
       );
@@ -410,9 +413,43 @@ class _MazeArrowsPainter extends CustomPainter {
   int? get widgetShakeId =>
       shakingPos == null ? null : board.atPos(shakingPos!)?.id;
 
+  void _paintSectionFrames(Canvas canvas) {
+    if (board.walls == null) return;
+    final path = Path();
+    for (var r = 0; r < board.rows; r++) {
+      for (var c = 0; c < board.cols; c++) {
+        if (!board.isPlayable(r, c)) continue;
+        final x = _GameBoardState._padding + c * cellSize;
+        final y = _GameBoardState._padding + r * cellSize;
+        void edge(int nr, int nc, Offset a, Offset b) {
+          final closed =
+              !board.inBounds(nr, nc) ||
+              board.isWall(nr, nc) ||
+              !board.isPlayable(nr, nc);
+          if (!closed) return;
+          path
+            ..moveTo(a.dx, a.dy)
+            ..lineTo(b.dx, b.dy);
+        }
+
+        edge(r - 1, c, Offset(x, y), Offset(x + cellSize, y));
+        edge(r + 1, c, Offset(x, y + cellSize), Offset(x + cellSize, y + cellSize));
+        edge(r, c - 1, Offset(x, y), Offset(x, y + cellSize));
+        edge(r, c + 1, Offset(x + cellSize, y), Offset(x + cellSize, y + cellSize));
+      }
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = gridColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.25,
+    );
+  }
+
   void _paintGrid(Canvas canvas, Size size) {
     // Dense boards are already a line field; a grid would just muddy them.
-    if (cellSize < 14) return;
+    if (cellSize < 14 || board.playable != null) return;
     final path = Path();
     final inset = 6.0;
     for (var i = 1; i < board.cols; i++) {
@@ -515,6 +552,7 @@ class _GuidancePainter extends CustomPainter {
 class _SlidingArrowLayer extends StatelessWidget {
   const _SlidingArrowLayer({
     required this.sliding,
+    required this.board,
     required this.cellSize,
     required this.animation,
     required this.boardSize,
@@ -522,10 +560,27 @@ class _SlidingArrowLayer extends StatelessWidget {
   });
 
   final SlidingArrow sliding;
+  final Board board;
   final double cellSize;
   final Animation<double> animation;
   final double boardSize;
   final Color mazeColor;
+
+  /// Distance the head may travel. A section wall stops the slide inside
+  /// the divider so the arrow never draws through the next square.
+  double _travel(GridPos head, Direction direction) {
+    var r = head.row + direction.dRow;
+    var c = head.col + direction.dCol;
+    var steps = 0;
+    while (board.inBounds(r, c)) {
+      if (board.isWall(r, c)) return (steps + 0.85) * cellSize;
+      if (!board.isPlayable(r, c)) break;
+      steps++;
+      r += direction.dRow;
+      c += direction.dCol;
+    }
+    return boardSize + cellSize * 2;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -544,7 +599,7 @@ class _SlidingArrowLayer extends StatelessWidget {
     if (centers.isEmpty) return const SizedBox.shrink();
 
     final extend = MazeLine.endExtension(cellSize);
-    final travel = boardSize + cellSize * 2;
+    final travel = _travel(sliding.arrow.head, dir);
     Offset tail;
     if (centers.length == 1) {
       tail = centers.first - facing * extend;

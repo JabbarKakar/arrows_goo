@@ -66,6 +66,7 @@ class PlayState {
     this.shakingPos,
     this.shakeNonce = 0,
     this.guidancePos,
+    this.secondsLeft = 4 * 60,
   });
 
   static const maxHearts = 3;
@@ -83,6 +84,9 @@ class PlayState {
   final GridPos? shakingPos;
   final int shakeNonce;
   final GridPos? guidancePos;
+
+  /// Countdown for this attempt. Reaching zero fails the level.
+  final int secondsLeft;
 
   int get levelNumber => config.levelNumber;
 
@@ -110,6 +114,7 @@ class PlayState {
     int? shakeNonce,
     GridPos? guidancePos,
     bool clearGuidance = false,
+    int? secondsLeft,
   }) {
     return PlayState(
       board: board ?? this.board,
@@ -124,6 +129,7 @@ class PlayState {
       shakingPos: clearShaking ? null : (shakingPos ?? this.shakingPos),
       shakeNonce: shakeNonce ?? this.shakeNonce,
       guidancePos: clearGuidance ? null : (guidancePos ?? this.guidancePos),
+      secondsLeft: secondsLeft ?? this.secondsLeft,
     );
   }
 }

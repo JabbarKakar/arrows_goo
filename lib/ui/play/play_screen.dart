@@ -63,6 +63,10 @@ class PlayScreen extends ConsumerWidget {
         ),
         actions: [
           Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.xs),
+            child: _LevelTimer(seconds: session.secondsLeft),
+          ),
+          Padding(
             padding: const EdgeInsets.only(right: AppSpacing.sm),
             child: HeartsHud(hearts: session.hearts),
           ),
@@ -241,10 +245,14 @@ class PlayScreen extends ConsumerWidget {
             if (session.isFailed)
               Positioned.fill(
                 child: PlaySheet(
-                  title: 'Out of hearts',
-                  icon: Icons.favorite_border_rounded,
+                  title: session.secondsLeft <= 0 ? "Time's up" : 'Out of hearts',
+                  icon: session.secondsLeft <= 0
+                      ? Icons.timer_off_rounded
+                      : Icons.favorite_border_rounded,
                   iconColor: colors.error,
-                  subtitle: 'Try a different order, or continue this board.',
+                  subtitle: session.secondsLeft <= 0
+                      ? 'Continue for a little more time, or restart.'
+                      : 'Try a different order, or continue this board.',
                   actions: [
                     GameButton(
                       key: const Key('continue_button'),
@@ -252,7 +260,11 @@ class PlayScreen extends ConsumerWidget {
                       label: 'Continue',
                       onPressed: notifier.continueWithHeart,
                     ),
-                    const GameCaption('Ad placeholder — restores one heart'),
+                    GameCaption(
+                      session.secondsLeft <= 0
+                          ? 'Ad placeholder — adds 45 seconds'
+                          : 'Ad placeholder — restores one heart',
+                    ),
                     GameButton(
                       key: const Key('restart_button'),
                       expand: true,
@@ -272,6 +284,38 @@ class PlayScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _LevelTimer extends StatelessWidget {
+  const _LevelTimer({required this.seconds});
+
+  final int seconds;
+
+  @override
+  Widget build(BuildContext context) {
+    final urgent = seconds <= 30;
+    final colors = GameColors.of(context);
+    final text = '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+    return Row(
+      key: const Key('level_timer'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.timer_outlined,
+          size: 18,
+          color: urgent ? colors.error : colors.textSecondary,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: urgent ? colors.error : colors.textPrimary,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
     );
   }
 }

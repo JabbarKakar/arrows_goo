@@ -6,6 +6,7 @@ import '../../core/feel/feel_service.dart';
 import '../../core/storage/campaign_progress.dart';
 import '../../core/storage/daily_progress.dart';
 import '../engine/board_engine.dart';
+import '../levels/difficulty.dart';
 import '../levels/level_catalog.dart';
 import '../models/grid_pos.dart';
 import 'play_state.dart';
@@ -14,8 +15,12 @@ final playConfigProvider =
     StateProvider<PlayConfig>((ref) => const PlayConfig.campaign(1));
 
 class PlaySessionNotifier extends AutoDisposeNotifier<PlayState> {
+  Timer? _clock;
+
   @override
   PlayState build() {
+    ref.onDispose(() => _clock?.cancel());
+    _clock = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
     return _fresh(ref.read(playConfigProvider));
   }
 
@@ -24,7 +29,20 @@ class PlaySessionNotifier extends AutoDisposeNotifier<PlayState> {
     final board = config.isDaily
         ? catalog.boardForDaily(config.dailyId!)
         : catalog.boardFor(config.levelNumber);
-    return PlayState(board: board, config: config);
+    final seconds = config.isDaily
+        ? 3 * 60
+        : DifficultyTier.forLevel(config.levelNumber).timeLimitSeconds;
+    return PlayState(board: board, config: config, secondsLeft: seconds);
+  }
+
+  void _tick() {
+    if (state.isPaused || state.isWon || state.isFailed) return;
+    final left = state.secondsLeft - 1;
+    if (left <= 0) {
+      state = state.copyWith(secondsLeft: 0, isFailed: true, clearGuidance: true);
+      return;
+    }
+    state = state.copyWith(secondsLeft: left);
   }
 
   void tap(int row, int col) {
@@ -93,7 +111,13 @@ class PlaySessionNotifier extends AutoDisposeNotifier<PlayState> {
 
   void continueWithHeart() {
     if (!state.isFailed) return;
-    state = state.copyWith(isFailed: false, hearts: 1);
+    final outOfTime = state.secondsLeft <= 0;
+    final outOfHearts = state.hearts <= 0;
+    state = state.copyWith(
+      isFailed: false,
+      hearts: outOfHearts ? 1 : state.hearts,
+      secondsLeft: outOfTime ? 45 : state.secondsLeft,
+    );
   }
 
   void startGuidance(GridPos pos) {
